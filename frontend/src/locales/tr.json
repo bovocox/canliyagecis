@@ -1,0 +1,304 @@
+{
+  "common": {
+    "add": "Ekle",
+    "loading": "Yükleniyor...",
+    "loadingSummary": "Özet yükleniyor...",
+    "user": "Kullanıcı",
+    "userInitial": "K",
+    "views": "görüntülenme",
+    "signOut": "Çıkış Yap",
+    "signInWithGoogle": "Google ile Giriş Yap",
+    "justNow": "Az önce",
+    "timeAgo": "{count} {unit} önce",
+    "comingSoon": "Yakında",
+    "time": {
+      "minute": "dakika",
+      "hour": "saat",
+      "day": "gün",
+      "week": "hafta",
+      "month": "ay",
+      "year": "yıl"
+    },
+    "error": "Hata",
+    "errors": {
+      "notAuthenticated": "Lütfen önce giriş yapın",
+      "connectionError": "Bağlantı hatası oluştu",
+      "unknownError": "Bilinmeyen bir hata oluştu"
+    },
+    "back": "Geri",
+    "retry": "Tekrar Dene",
+    "share": "Paylaş",
+    "download": "İndir",
+    "watchOnYoutube": "YouTube'da İzle",
+    "cancel": "İptal",
+    "siteTitle": "Veciz AI - Video Özetleme",
+    "loadingTranscript": "Transkript yükleniyor..."
+  },
+  "navigation": {
+    "home": "Ana Sayfa",
+    "summaries": "Özetler",
+    "channels": "Kanallar"
+  },
+  "summaries": {
+    "title": "Özetler",
+    "filters": {
+      "all": "Tümü",
+      "today": "Bugün",
+      "week": "Bu Hafta",
+      "month": "Bu Ay"
+    },
+    "language": "Dil",
+    "languages": {
+      "all": "Tüm Diller",
+      "tr": "Türkçe",
+      "en": "İngilizce"
+    },
+    "groups": {
+      "today": "Bugün",
+      "yesterday": "Dün",
+      "thisWeek": "Bu Hafta",
+      "thisMonth": "Bu Ay",
+      "older": "Daha Eski"
+    },
+    "status": {
+      "read": "Okundu",
+      "unread": "Okunmadı"
+    },
+    "actions": {
+      "markAsRead": "Okundu olarak işaretle",
+      "download": "İndir",
+      "share": "Paylaş",
+      "delete": "Sil"
+    },
+    "noSummaries": "Bu dönem için özet bulunamadı",
+    "feedback": {
+      "title": "Değerlendirme",
+      "rating": {
+        "notRated": "Henüz değerlendirilmedi",
+        "rated": "{rating} yıldız verdiniz"
+      },
+      "comment": {
+        "label": "Yorumunuz",
+        "placeholder": "Bu özet hakkında düşüncelerinizi yazın..."
+      },
+      "submit": "Değerlendir",
+      "submitSuccess": "Değerlendirmeniz için teşekkürler!"
+    },
+    "errors": {
+      "deleteFailed": "Özet silinemedi"
+    }
+  },
+  "home": {
+    "banner": {
+      "title": "Videoları Yapay Zeka ile Özetleyin",
+      "subtitle": "Favori kanallarınızı takip edin, günlük özetlerle hiçbir içeriği kaçırmayın"
+    },
+    "howItWorks": {
+      "title": "Nasıl Çalışır?",
+      "steps": {
+        "step1": {
+          "title": "Hesap Oluşturun",
+          "description": "Google hesabınızla hızlıca kayıt olun"
+        },
+        "step2": {
+          "title": "Kanal Ekleyin",
+          "description": "Takip etmek istediğiniz YouTube kanallarını ekleyin"
+        },
+        "step3": {
+          "title": "Otomatik Takip",
+          "description": "Sistemimiz günde 3 kez kanalları kontrol eder ve yeni videoları tespit eder"
+        },
+        "step4": {
+          "title": "Yapay Zeka Özeti",
+          "description": "Yeni videolar yapay zeka ile analiz edilir ve özetlenir"
+        },
+        "step5": {
+          "title": "Hazır Özetler",
+          "description": "Özetleri hesabınızdan okuyun veya e-posta ile alın"
+        }
+      }
+    },
+    "search": {
+      "placeholder": "YouTube video URL'sini girin",
+      "button": "Ara"
+    },
+    "tabs": {
+      "summary": "Özet",
+      "summaryShort": "Özet",
+      "transcript": "Transkript",
+      "transcriptShort": "Yazı",
+      "listen": "Dinle",
+      "listenShort": "Dinle"
+    },
+    "summary": {
+      "title": "Özet",
+      "loading": "Özet hazırlanıyor...",
+      "empty": "Henüz bir özet bulunmuyor",
+      "detailButton": "Detaylı Özeti Görüntüle",
+      "completedSummaries": "Tamamlanmış Özetler",
+      "noSummaries": "Henüz özet bulunmuyor. Bir video araması yaparak özet oluşturabilirsiniz.",
+      "watchVideo": "Videoyu İzle",
+      "modal": {
+        "title": "Video Detayları",
+        "sections": {
+          "overview": "Genel Bakış",
+          "keyPoints": "Ana Noktalar",
+          "quotes": "Önemli Alıntılar"
+        }
+      }
+    },
+    "transcript": {
+      "title": "Transkript",
+      "empty": "Bu video için transkript bulunmuyor",
+      "loading": "Transkript yükleniyor...",
+      "detailButton": "Detayları Gör",
+      "modal": {
+        "title": "Video Transkripti"
+      }
+    },
+    "listen": {
+      "description": "Videoyu sesli olarak dinleyebilirsiniz",
+      "playButton": "Dinlemeye Başla",
+      "button": "Dinle"
+    },
+    "features": {
+      "title": "Özellikler",
+      "channelTracking": {
+        "title": "Akıllı Kanal Takibi",
+        "description": "Favori YouTube kanallarınızı tek tıkla ekleyin, yeni içerikleri anında keşfedin"
+      },
+      "instantSummaries": {
+        "title": "Günlük Video Özetleri",
+        "description": "Her sabah takip ettiğiniz kanalların yeni videolarının özetlerini hesabınızda bulun"
+      },
+      "smartSummaries": {
+        "title": "Akıllı Özetler",
+        "description": "Yapay zeka destekli özetleme ile videoları hızlıca kavrayın"
+      },
+      "multilingual": {
+        "title": "Çoklu Dil Desteği",
+        "description": "Özetleri istediğiniz dilde okuyun ve anlayın"
+      },
+      "keyIdeas": {
+        "title": "Ana Fikirler",
+        "description": "Videoların ana fikirlerini hızlıca kavrayın"
+      },
+      "transcripts": {
+        "title": "Transkriptler",
+        "description": "Video içeriğini metin olarak okuyun"
+      }
+    },
+    "testimonials": {
+      "title": "Kullanıcı Yorumları"
+    },
+    "processing": {
+      "status": "Video işleniyor...",
+      "timeEstimate": "Bu işlem sürece göre 3-4 dakika sürebilir",
+      "processingChapter": "{chapter} bölümü işleniyor",
+      "chapters": "bölüm",
+      "processingChapters": "Bölümler İşleniyor",
+      "chaptersCompleted": "bölüm tamamlandı",
+      "fetchingInfo": "Video bilgileri alınıyor...",
+      "creatingTranscript": "Video transkripti oluşturuluyor...",
+      "creatingSummary": "Özet çıkarılıyor...",
+      "savingResults": "Sonuçlar kaydediliyor..."
+    },
+    "language": {
+      "selectTitle": "Dil Seçin",
+      "selectDescription": "Özeti hangi dilde görmek istersiniz?"
+    }
+  },
+  "channels": {
+    "info": {
+      "title": "YouTube Kanallarınızı Ekleyin",
+      "description": "Takip etmek istediğiniz YouTube kanallarını ekleyin. Kanal URL'sini veya @kullanıcıadı formatını kullanabilirsiniz.",
+      "steps": {
+        "step1": "Kanal URL'sini veya @kullanıcıadı'nı girin",
+        "step2": "Ekle butonuna tıklayın",
+        "step3": "Kanal otomatik olarak takip listesine eklenecek",
+        "step4": "Yeni videolar yüklendiğinde bildirim alacaksınız"
+      }
+    },
+    "title": "YouTube Kanalları",
+    "addChannel": "Kanal Ekle",
+    "urlPlaceholder": "YouTube kanal URL'sini girin",
+    "subscribers": "abone",
+    "videos": "video",
+    "views": "görüntülenme",
+    "latestVideos": "Son Videolar",
+    "empty": {
+      "title": "Henüz kanal yok",
+      "description": "Başlamak için ilk YouTube kanalınızı ekleyin"
+    },
+    "language": {
+      "selectTitle": "Özet Dili Seçin",
+      "selectDescription": "Bu kanal için özetlerin hangi dilde oluşturulmasını istiyorsunuz?",
+      "updated": "Kanal dil tercihi güncellendi"
+    },
+    "features": {
+      "notifications": {
+        "title": "Bildirimler",
+        "description": "Yeni video yüklendiğinde anında haberdar olun"
+      },
+      "ai": {
+        "title": "Yapay Zeka Özetleri",
+        "description": "Video içeriklerini yapay zeka ile özetleyin"
+      },
+      "email": {
+        "title": "E-posta Bildirimleri",
+        "description": "Günlük veya haftalık özet e-postaları alın"
+      }
+    },
+    "errors": {
+      "loadFailed": "Kanallar yüklenirken bir hata oluştu",
+      "addFailed": "Kanal eklenemedi. Lütfen geçerli bir YouTube kanal URL'si girdiğinizden emin olun.",
+      "removeFailed": "Kanal silinirken bir hata oluştu",
+      "channelExists": "Bu kanal zaten takip listenizde bulunuyor",
+      "invalidUrl": "Geçersiz YouTube kanal URL'si. Lütfen '@kanaladiniz' formatını veya tam kanal URL'sini kullanın.",
+      "channelNotFound": "Kanal bulunamadı. Böyle bir YouTube kanalı mevcut değil veya kanal URL'si yanlış.",
+      "notAChannel": "Girdiğiniz URL bir YouTube kanalına ait değil. Lütfen bir video URL'si yerine kanal URL'si girin."
+    },
+    "channelDetails": {
+      "title": "Kanal Detayları",
+      "statistics": {
+        "subscribers": "Abone",
+        "videos": "Video",
+        "views": "Görüntülenme"
+      },
+      "latestVideos": "Son Videolar",
+      "noVideos": "Henüz video yok",
+      "back": "Kanallara Dön"
+    },
+    "actions": {
+      "view": "Görüntüle",
+      "remove": "Sil"
+    }
+  },
+  "errors": {
+    "invalidUrl": "Geçersiz YouTube URL'si",
+    "videoFetchFailed": "Video detayları alınamadı",
+    "summaryFailed": "Özet oluşturulamadı",
+    "connectionError": "Bağlantı hatası oluştu",
+    "apiNotFound": "API servisine ulaşılamadı. Lütfen daha sonra tekrar deneyin.",
+    "serverError": "Sunucu hatası oluştu. Lütfen daha sonra tekrar deneyin.",
+    "apiError": "API hatası oluştu",
+    "networkError": "İnternet bağlantınızı kontrol edin ve tekrar deneyin.",
+    "unexpectedError": "Beklenmeyen bir hata oluştu. Lütfen daha sonra tekrar deneyin.",
+    "videoProcessingFailed": "Video işlenirken bir hata oluştu.",
+    "feedbackFailed": "Geri bildirim gönderilirken bir hata oluştu."
+  },
+  "footer": {
+    "about": {
+      "title": "Hakkımızda",
+      "description": "Veciz AI, favori kanallarınızı takip ettiğiniz, günlük özetlerle hiçbir içeriği kaçırmadığınız, YouTube videolarını yapay zeka ile özetleyen ve transkript oluşturan bir araçtır."
+    },
+    "quickLinks": {
+      "title": "Hızlı Bağlantılar",
+      "home": "Ana Sayfa"
+    },
+    "contact": {
+      "title": "İletişim",
+      "description": "Sorularınız için bize ulaşın: hello@veciz.ai"
+    }
+  }
+} 

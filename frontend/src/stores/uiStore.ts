@@ -1,0 +1,112 @@
+import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
+
+export const useUIStore = defineStore('ui', () => {
+  // Search state
+  const searchQuery = ref('')
+  const pendingVideoUrl = ref('')
+
+  // Error state
+  const error = ref('')
+
+  // UI visibility states
+  const activeTab = ref('summary')
+  const isMenuOpen = ref(false)
+  const showDetailModal = ref(false)
+  const showLanguageModal = ref(false)
+  const showTranscriptModal = ref(false)
+  const selectedLanguage = ref('tr')
+  
+  // Spinner state
+  const spinnerVisible = ref(false)
+
+  // Computed property
+  const shouldShowSpinner = computed(() => spinnerVisible.value)
+
+  // Actions
+  function setSearchQuery(query: string) {
+    searchQuery.value = query
+  }
+
+  function setPendingVideoUrl(url: string) {
+    pendingVideoUrl.value = url
+  }
+
+  function setError(message: string) {
+    error.value = message
+  }
+
+  function clearError() {
+    error.value = ''
+  }
+
+  function setActiveTab(tab: string) {
+    activeTab.value = tab
+  }
+
+  function toggleMenu(show?: boolean) {
+    isMenuOpen.value = typeof show === 'boolean' ? show : !isMenuOpen.value
+  }
+
+  function closeMenu() {
+    isMenuOpen.value = false
+  }
+
+  function toggleDetailModal(show?: boolean) {
+    showDetailModal.value = typeof show === 'boolean' ? show : !showDetailModal.value
+  }
+
+  function toggleLanguageModal(show?: boolean) {
+    showLanguageModal.value = typeof show === 'boolean' ? show : !showLanguageModal.value
+  }
+
+  function toggleTranscriptModal(show?: boolean) {
+    showTranscriptModal.value = typeof show === 'boolean' ? show : !showTranscriptModal.value
+  }
+
+  function setSelectedLanguage(language: string) {
+    selectedLanguage.value = language
+  }
+
+  function showSpinner() {
+    spinnerVisible.value = true
+  }
+  
+  function hideSpinner() {
+    spinnerVisible.value = false
+  }
+  
+  function toggleSpinner(show?: boolean) {
+    spinnerVisible.value = typeof show === 'boolean' ? show : !spinnerVisible.value
+  }
+
+  return {
+    // States
+    searchQuery,
+    pendingVideoUrl,
+    error,
+    activeTab,
+    isMenuOpen,
+    showDetailModal,
+    showLanguageModal,
+    showTranscriptModal,
+    selectedLanguage,
+    shouldShowSpinner,
+
+    // Actions
+    setSearchQuery,
+    setPendingVideoUrl,
+    setError,
+    clearError,
+    setActiveTab,
+    toggleMenu,
+    closeMenu,
+    toggleDetailModal,
+    toggleLanguageModal,
+    toggleTranscriptModal,
+    setSelectedLanguage,
+    showSpinner,
+    hideSpinner,
+    toggleSpinner
+  }
+}) 

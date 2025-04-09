@@ -1,0 +1,224 @@
+export default {
+  common: {
+    user: 'Kullanıcı',
+    userInitial: 'K',
+    signInWithGoogle: 'Google ile Giriş',
+    signOut: 'Çıkış Yap',
+    loading: 'Yükleniyor...',
+    views: 'görüntülenme'
+  },
+  navigation: {
+    home: 'Ana Sayfa',
+    channels: 'Kanallarım',
+    summaries: 'Özetlerim',
+    signOut: 'Çıkış Yap',
+    toSummaries: 'Özetlerim',
+    toHome: 'Anasayfa'
+  },
+  home: {
+    banner: {
+      title: 'YouTube videolarını yapay zeka ile özetleyin',
+      subtitle: 'Tek tıkla, sekme değiştirmeden, komut yazmadan.\nHer konuda ve uzunlukta uzman seviyesinde özetler alın.'
+    },
+    search: {
+      placeholder: 'https://youtube.com/watch?v=...',
+      button: 'Özetle'
+    },
+    error: {
+      fetchFailed: 'Sonuçlar alınamadı'
+    },
+    tabs: {
+      summary: 'Özet',
+      summaryShort: 'Özet',
+      list: 'Liste',
+      listShort: 'Liste',
+      transcript: 'Transkript',
+      transcriptShort: 'CC',
+      listen: 'Dinle',
+      listenShort: 'Oynat'
+    },
+    listen: {
+      description: 'Bu videonun yapay zeka tarafından oluşturulan özetini dinlemek için oynat butonuna tıklayın.',
+      playButton: 'Özeti Dinle'
+    },
+    features: {
+      title: 'VideoAI: YouTube Öğrenmenizin Anahtarı',
+      keyIdeas: {
+        title: 'Anahtar Fikirleri Çıkarma',
+        description: 'Herhangi bir YouTube videosundan ana noktaları ve önemli bilgileri anında alın.'
+      },
+      smartSummaries: {
+        title: 'Akıllı Özetler',
+        description: 'İçeriğin özünü doğru bir şekilde yakalayan yapay zeka destekli özetler.'
+      },
+      transcripts: {
+        title: 'Etkileşimli Transkriptler',
+        description: 'Video içeriğinde aranabilir, zaman damgalı transkriptlerle gezinin.'
+      }
+    },
+    howItWorks: {
+      title: 'Nasıl Çalışır?',
+      steps: {
+        step1: {
+          title: 'Video URL\'si Ekleyin',
+          description: 'YouTube videosunun bağlantısını yapıştırın'
+        },
+        step2: {
+          title: 'Yapay Zeka Analizi',
+          description: 'Gelişmiş AI sistemimiz videoyu analiz eder'
+        },
+        step3: {
+          title: 'Akıllı Özet',
+          description: 'Anında detaylı ve anlaşılır özet oluşturulur'
+        },
+        step4: {
+          title: 'Hazır!',
+          description: 'Özeti okuyun, dinleyin veya kaydedin'
+        }
+      }
+    },
+    testimonials: {
+      title: 'Kullanıcılarımız Ne Diyor?',
+      items: [
+        {
+          name: 'Ahmet Yılmaz',
+          role: 'Yazılım Geliştirici',
+          image: '/testimonials/user1.jpg',
+          comment: 'Teknik videoları özetlemek için mükemmel bir araç. Saatlerce video izlemek yerine ana noktaları hızlıca kavrayabiliyorum.',
+          rating: 5
+        },
+        {
+          name: 'Ayşe Kaya',
+          role: 'Eğitim Danışmanı',
+          image: '/testimonials/user2.jpg',
+          comment: 'Öğrencilerim için video içeriklerini özetlemek artık çok kolay. Öğrenme sürecini çok daha verimli hale getirdi.',
+          rating: 5
+        },
+        {
+          name: 'Mehmet Demir',
+          role: 'İçerik Üreticisi',
+          image: '/testimonials/user3.jpg',
+          comment: 'Rakip analizi ve araştırma yaparken çok işime yarıyor. Yapay zeka özetleri gerçekten çok başarılı.',
+          rating: 4
+        }
+      ]
+    },
+    summary: {
+      title: "Özet",
+      detailButton: 'Detaylı Özet',
+      modal: {
+        title: 'Detaylı Video Özeti',
+        close: 'Kapat',
+        share: 'Paylaş',
+        download: 'İndir',
+        sections: {
+          overview: 'Genel Bakış',
+          keyPoints: 'Ana Noktalar',
+          details: 'Detaylı Özet',
+          quotes: 'Önemli Alıntılar'
+        }
+      }
+    },
+    transcript: {
+      title: 'Transkript',
+      empty: 'Bu video için transkript bulunmuyor',
+      loading: 'Tercüme yapılıyor... Birazdan hazır olacak! 🤓',
+      detailButton: 'Detaylı Görüntüle',
+      modal: {
+        title: 'Video Transkripti'
+      }
+    },
+    feedback: {
+      title: 'Değerlendirme',
+      rating: {
+        notRated: 'Henüz değerlendirilmedi',
+        rated: '{rating} yıldız verdiniz'
+      },
+      comment: {
+        label: 'Yorumunuz',
+        placeholder: 'Bu özet hakkında düşüncelerinizi yazın...'
+      },
+      submit: 'Değerlendir',
+      submitSuccess: 'Değerlendirmeniz için teşekkürler!'
+    }
+  },
+  channels: {
+    title: 'Takip Ettiğim Kanallar',
+    addChannel: {
+      title: 'Kanal Ekleyin',
+      description: 'Özetlemek istediğiniz YouTube kanalının URL\'sini girerek başlayın',
+      placeholder: 'YouTube kanal URL\'si ekleyin...',
+      button: 'Ekle',
+      example: 'Örnek: https://youtube.com/c/channelname'
+    },
+    features: {
+      notifications: {
+        title: 'Anlık Bildirimler',
+        description: 'Takip ettiğiniz kanallara yeni video yüklendiğinde anında haberdar olun.'
+      },
+      ai: {
+        title: 'AI Özetleri',
+        description: 'Her yeni video için otomatik olarak akıllı özetler oluşturuyoruz'
+      },
+      email: {
+        title: 'E-posta Bildirimleri',
+        description: 'Özetleri e-posta ile alın, istediğiniz zaman okuyun'
+      }
+    },
+    channelList: {
+      addedOn: 'Eklenme'
+    }
+  },
+  summaries: {
+    title: 'Video Özetlerim',
+    filters: {
+      all: 'Tümü',
+      today: 'Bugün',
+      week: 'Bu Hafta',
+      month: 'Bu Ay'
+    },
+    actions: {
+      listen: 'Sesli Dinle',
+      markAsRead: 'Okundu',
+      watchOnYoutube: 'YouTube\'da İzle',
+      read: 'Özeti Oku'
+    },
+    feedback: {
+      title: 'Özeti Değerlendir',
+      rating: {
+        notRated: 'Henüz değerlendirilmedi',
+        rated: '{rating}/5 yıldız'
+      },
+      comment: {
+        label: 'Yorumunuz',
+        placeholder: 'Bu özet hakkında ne düşünüyorsunuz?'
+      },
+      submit: 'Değerlendirmeyi Gönder',
+      submitSuccess: 'Değerlendirmeniz başarıyla kaydedildi!'
+    }
+  },
+  footer: {
+    about: {
+      title: 'Hakkında',
+      description: 'VideoAI, YouTube videoları için yapay zeka destekli transkript ve özet oluşturma aracıdır.'
+    },
+    quickLinks: {
+      title: 'Hızlı Bağlantılar',
+      home: 'Ana Sayfa',
+      about: 'Hakkında'
+    },
+    contact: {
+      title: 'İletişim',
+      description: 'Sorularınız mı var? Bize {email} adresinden ulaşın',
+      email: 'support@videoai.com'
+    }
+  },
+  errors: {
+    videoFetchFailed: 'Video detayları alınamadı. Lütfen tekrar deneyin.',
+    summaryFailed: 'Özet oluşturulamadı. Lütfen tekrar deneyin.',
+    invalidUrl: 'Lütfen geçerli bir YouTube URL\'si girin.',
+    networkError: 'Ağ hatası. Lütfen bağlantınızı kontrol edin.',
+    serverError: 'Sunucu hatası. Lütfen daha sonra tekrar deneyin.',
+    feedbackFailed: 'Geri bildirim gönderilirken bir hata oluştu'
+  }
+} 
