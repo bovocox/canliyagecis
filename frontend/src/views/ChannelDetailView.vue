@@ -230,7 +230,7 @@ onMounted(() => {
 
         <!-- Latest Videos -->
         <div class="bg-white rounded-lg shadow-sm p-6">
-          <h2 class="text-xl font-semibold text-gray-900 mb-6">{{ languageStore.t('channels.channelDetails.latestVideos') }}</h2>
+          <h2 class="text-xl font-semibold text-gray-900 mb-6">{{ languageStore.t('channels.latestVideos') }}</h2>
           <div v-if="channelDetails.channel_videos?.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <a 
               v-for="video in channelDetails.channel_videos" 

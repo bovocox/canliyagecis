@@ -44,6 +44,7 @@ const pendingVideoUrl = ref('')
 const showTranscriptModal = ref(false)
 const selectedSummary = ref<VideoSummary | null>(null)
 const summaries = ref<VideoSummary[]>([])
+const forceRender = ref(0)
 
 const videoData = computed(() => videoStore.videoData);
 
@@ -104,6 +105,32 @@ onMounted(async () => {
   // Click listener'ı ekle
   document.addEventListener('click', closeMenu);
   
+  // Dil değişikliği listener'ı ekle
+  languageStore.onLanguageChange((newLang) => {
+    console.log(`🌍 Dil değişikliği algılandı: ${newLang}`);
+    
+    // Eğer video zaten işlenmiş ve özet varsa, o dildeki özeti getir
+    if (videoData.value?.id) {
+      console.log('🔄 Aynı video için farklı dilde özet isteniyor...');
+      // Mevcut videoyu yeni dilde işle, video ID'yi koruyarak
+      videoProcessingService.handleVideoProcess(videoData.value.id, newLang)
+        .then(() => {
+          console.log('✅ Dil değişimi sonrası video işleme başarılı!');
+        })
+        .catch(err => {
+          console.error('❌ Dil değişimi sonrası video işleme hatası:', err);
+        });
+    }
+    
+    // Dil değişikliği sonrası özetleri yeniden yükle
+    loadAvailableSummaries().catch(err => {
+      console.error('❌ Dil değişimi sonrası özetleri yükleme hatası:', err);
+    });
+    
+    // Alt bileşenleri yeniden render etmek için forceRender'ı artır
+    forceRender.value++;
+  });
+  
   // Default video ID'sini ayarla
   const defaultVideoId = 'lFZvLeMbJ_U';
   videoStore.setVideoId(defaultVideoId);
@@ -152,36 +179,27 @@ const handleSearch = async () => {
 }
 
 const processVideoWithLanguage = async (language: string) => {
+  console.log('🔍 Video işleme başlatılıyor | Dil:', language, 'Video ID:', videoId.value);
+  
+  // Modal'ı kapat
+  showLanguageModal.value = false;
+  
   try {
-    console.log('🎬 processVideoWithLanguage başladı:', { language, videoId: videoId.value });
-    
-    showLanguageModal.value = false; // Close the modal first
-    
-    // Loading states'i ayarla
-    videoStore.setLoadingState('summary', true);
-    videoStore.setLoadingState('transcript', true);
-    
-    // Reset processing state
-    videoStore.clearProcessingStatus();
-    console.log('🧹 Processing status temizlendi');
-    
-    // Process video using the service
-    console.log('🎬 videoProcessingService.handleVideoProcess çağrılıyor');
-    await videoProcessingService.handleVideoProcess(videoId.value, language);
-    
-    // Load available summaries after processing
-    console.log('📋 Mevcut özetler yükleniyor');
-    summaries.value = await videoProcessingService.loadAvailableSummaries({ language });
-    console.log('✅ Özetler yüklendi:', summaries.value.length);
+    // Mevcut videoId ve seçilen dil ile video işlemeyi başlat
+    if (videoId.value) {
+      console.log('🚀 Video işleme servisi çağrılıyor...');
+      // Video işlemeyi başlat
+      await videoProcessingService.handleVideoProcess(videoId.value, language);
+      console.log('✅ Video işleme başarıyla tamamlandı! Dil:', language);
+    } else {
+      console.error('❌ Video ID bulunamadı!');
+      error.value = 'Video ID bulunamadı';
+    }
   } catch (err) {
-    console.error('❌ Error processing video:', err);
-    error.value = err instanceof Error ? err.message : 'Failed to process video';
-    
-    // Hata durumunda loading state'leri sıfırla
-    videoStore.setLoadingState('summary', false);
-    videoStore.setLoadingState('transcript', false);
+    console.error('❌ Video işleme hatası:', err);
+    error.value = err instanceof Error ? err.message : 'Video işleme hatası';
   }
-}
+};
 
 // Summary tipi tanımları
 interface SummaryStatus {
@@ -500,42 +518,14 @@ const formattedSummaryPreview = computed(() => {
     : summaryText;
   return FormatService.formatSummaryText(truncatedText);
 });
-
-// Test Socket Section (Only visible in development)
-const testSocket = async (status: string) => {
-  try {
-    const videoId = videoData.value.id || 'test123';
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/test/test-summary/${videoId}/${status}`);
-    if (!response.ok) {
-      throw new Error('Failed to send test request');
-    }
-    const data = await response.json();
-    console.log('Test response:', data);
-  } catch (error) {
-    console.error('Error testing socket:', error);
-  }
-};
 </script>
 
 <template>
   <div class="min-h-screen bg-gray-50">
-    <!-- Üst kısma Auth Section'ı ekle, sağ üstte olacak -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
-      <div class="flex justify-end mb-4">
-        <button
-          v-if="!authStore.session"
-          @click="authStore.login"
-          class="flex items-center gap-1.5 px-4 py-2 bg-white text-gray-700 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors shadow-md"
-          :disabled="authStore.loading"
-        >
-          <img src="https://www.google.com/favicon.ico" alt="Google" class="w-4 h-4" />
-          <span class="text-sm font-medium">{{ languageStore.t('common.signInWithGoogle') }}</span>
-        </button>
-      </div>
-    </div>
+    <!-- Auth Section - artık App.vue'da olduğu için burayı kaldırıyoruz -->
     
     <!-- Main Content -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24">
       <!-- Banner Section -->
       <div class="text-center max-w-4xl mx-auto pb-12">
         <h1 class="text-4xl sm:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 leading-tight">
@@ -794,13 +784,13 @@ const testSocket = async (status: string) => {
       </div>
 
       <!-- Features Section -->
-      <FeatureSection />
+      <FeatureSection :key="`feature-${currentLanguage}-${forceRender}`" />
 
       <!-- Testimonials Section -->
-      <TestimonialSection />
+      <TestimonialSection :key="`testimonial-${currentLanguage}-${forceRender}`" />
 
       <!-- How It Works Section -->
-      <HowItWorksSection />
+      <HowItWorksSection :key="`howworks-${currentLanguage}-${forceRender}`" />
 
       <!-- Modals -->
       <DetailModal 
@@ -841,19 +831,6 @@ const testSocket = async (status: string) => {
             </svg>
           </button>
         </div>
-      </div>
-
-      <!-- Test Socket Section (Only visible in development) -->
-      <div v-if="isDev" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
-        <button @click="testSocket('completed')" class="px-4 py-2 bg-green-500 text-white rounded shadow hover:bg-green-600">
-          Test Summary Completed
-        </button>
-        <button @click="testSocket('processing')" class="px-4 py-2 bg-blue-500 text-white rounded shadow hover:bg-blue-600">
-          Test Summary Processing
-        </button>
-        <button @click="testSocket('failed')" class="px-4 py-2 bg-red-500 text-white rounded shadow hover:bg-red-600">
-          Test Summary Failed
-        </button>
       </div>
     </div>
   </div>

@@ -40,9 +40,9 @@
     "channels": "Channels"
   },
   "summaries": {
-    "title": "Your Summaries",
+    "title": "Summaries",
     "filters": {
-      "all": "All Summaries",
+      "all": "All",
       "today": "Today",
       "week": "This Week",
       "month": "This Month"
@@ -52,6 +52,19 @@
       "all": "All Languages",
       "tr": "Turkish",
       "en": "English"
+    },
+    "channels": {
+      "title": "Channel",
+      "all": "All Channels",
+      "noSummariesForChannel": "No summaries found for this channel with the selected filters. Try changing the filters.",
+      "addChannel": "Add Channel"
+    },
+    "groups": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "thisWeek": "This Week",
+      "thisMonth": "This Month",
+      "older": "Older"
     },
     "actions": {
       "markAsRead": "Mark as read",

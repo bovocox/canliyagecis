@@ -18,6 +18,11 @@ const closeModal = () => {
 };
 
 const selectLanguage = (language: string) => {
+  // Önce global dili değiştir (çeviri sistemi için)
+  // Video işlemi için dil değiştiğinde sayfayı YENİLEME
+  languageStore.setLanguage(language, false);
+  
+  // Sonra modelin emit edilecek olayı tetikle (video işleme için)
   emit('select-language', language);
 };
 </script>
@@ -37,7 +42,7 @@ const selectLanguage = (language: string) => {
         <button
           @click="selectLanguage('tr')"
           class="flex items-center gap-3 p-4 rounded-xl border-2 hover:border-indigo-500 transition-colors"
-          :class="{ 'border-indigo-500 bg-indigo-50': selectedLanguage === 'tr', 'border-gray-200': selectedLanguage !== 'tr' }"
+          :class="{ 'border-indigo-500 bg-indigo-50': languageStore.currentLocale === 'tr', 'border-gray-200': languageStore.currentLocale !== 'tr' }"
         >
           <span class="text-2xl">🇹🇷</span>
           <span class="text-base font-medium">Türkçe</span>
@@ -45,7 +50,7 @@ const selectLanguage = (language: string) => {
         <button
           @click="selectLanguage('en')"
           class="flex items-center gap-3 p-4 rounded-xl border-2 hover:border-indigo-500 transition-colors"
-          :class="{ 'border-indigo-500 bg-indigo-50': selectedLanguage === 'en', 'border-gray-200': selectedLanguage !== 'en' }"
+          :class="{ 'border-indigo-500 bg-indigo-50': languageStore.currentLocale === 'en', 'border-gray-200': languageStore.currentLocale !== 'en' }"
         >
           <span class="text-2xl">🇬🇧</span>
           <span class="text-base font-medium">English</span>

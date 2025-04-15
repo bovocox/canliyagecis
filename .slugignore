@@ -1,0 +1,30 @@
+# Whisper modelleri ve diğer büyük AI model dosyalarını hariç tut
+node_modules/@xenova/transformers/.cache/
+node_modules/@xenova/transformers/.cache/Xenova/
+node_modules/@xenova/transformers/.cache/Xenova/whisper-small/
+node_modules/@xenova/transformers/.cache/Xenova/whisper-small/onnx/
+
+# Diğer büyük paketleri dışarıda bırak (gerekirse)
+# node_modules/googleapis/
+# node_modules/onnxruntime-node/
+# node_modules/onnxruntime-web/
+
+# Test klasörleri ve dosyaları
+test/
+__tests__/
+tests/
+*.test.js
+*.spec.js
+
+# Dokümantasyon
+*.md
+docs/
+doc/
+documentation/
+
+# Geliştirme dosyaları
+*.log
+logs/
+.vscode/
+.idea/
+.github/ 

@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { useLanguageStore } from '../../stores/languageStore';
+import { computed } from 'vue';
 
 const languageStore = useLanguageStore();
 
-// Steps data (ileride API'den gelebilir)
-const steps = [
+// Steps data'yı computed property olarak tanımlayalım, böylece dil değiştiğinde reaktif olarak güncellenecek
+const steps = computed(() => [
   {
     id: 1,
     step: 1,
@@ -45,7 +46,7 @@ const steps = [
     color: 'from-orange-500 to-yellow-500',
     bgColor: 'from-orange-100 to-yellow-100'
   }
-];
+]);
 </script>
 
 <template>

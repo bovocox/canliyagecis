@@ -53,6 +53,12 @@
       "tr": "Türkçe",
       "en": "İngilizce"
     },
+    "channels": {
+      "title": "Kanal",
+      "all": "Tüm Kanallar",
+      "noSummariesForChannel": "Bu kanal için seçilen filtrelerde özet bulunamadı. Filtreleri değiştirerek tekrar deneyin.",
+      "addChannel": "Kanal Ekle"
+    },
     "groups": {
       "today": "Bugün",
       "yesterday": "Dün",

@@ -9,12 +9,12 @@ import { useRouter } from 'vue-router'
 const languageStore = useLanguageStore()
 const authStore = useAuthStore()
 const newChannel = ref('')
-const isMenuOpen = ref(false)
 const isLoading = ref(false)
 const error = ref('')
 const router = useRouter()
 const selectedChannel = ref<any | null>(null)
 const tempChannelUrl = ref('') // Kanal URL'sini geçici olarak saklamak için
+const forceRender = ref(0)
 
 // Dil seçim modalı için eklenen state
 const showLanguageModal = ref(false)
@@ -119,13 +119,15 @@ const formatRelativeTime = (dateString: string) => {
 }
 
 const loadChannels = async () => {
+  console.log('🔄 loadChannels başlatıldı');
   try {
     const sessionToken = authStore.getSession()?.access_token;
     if (!sessionToken) {
-      console.error('No session token found');
+      console.error('❌ No session token found');
       return;
     }
 
+    console.log('🔄 loadChannels: Token kontrol edildi');
     isLoading.value = true;
 
     const response = await fetch(`${import.meta.env.VITE_API_URL}/api/channels`, {
@@ -134,34 +136,27 @@ const loadChannels = async () => {
       }
     });
 
+    console.log('🔄 loadChannels: API yanıtı alındı', response.status);
+    
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const data = await response.json();
-    console.log('Backend raw response:', JSON.stringify(data, null, 2));
+    console.log('🔄 loadChannels: Veri işlendi');
     
     // Kanalları ekleme tarihine göre sırala (en yeni en üstte)
     channels.value = data.sort((a: Channel, b: Channel) => {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
     
-    // Her kanal için detaylı log
-    channels.value.forEach(channel => {
-      console.log(`Channel ${channel.title} details:`, {
-        id: channel.id,
-        videoCount: channel.video_count,
-        channelVideosArray: channel.channel_videos,
-        channelVideosLength: channel.channel_videos?.length || 0,
-        latestVideo: channel.channel_videos?.[0],
-        latestVideoPublishDate: channel.channel_videos?.[0]?.published_at
-      });
-    });
+    console.log('🔄 loadChannels: Veri dönüştürüldü, işlem tamamlandı');
 
   } catch (error) {
-    console.error('Error loading channels:', error);
+    console.error('❌ Error loading channels:', error);
   } finally {
     isLoading.value = false;
+    console.log('🔄 loadChannels: Loading durumu sıfırlandı');
   }
 };
 
@@ -187,16 +182,60 @@ const addChannel = async () => {
       return;
     }
 
+    // Kanal URL'sini geçici olarak sakla
     tempChannelUrl.value = newChannel.value;
-    const channelUrl = newChannel.value;
     
+    // İşlemi durdurup önce dil modalını göster
+    isLoading.value = false;
+    
+    // Dil seçimi modalını göster
+    showLanguageModal.value = true;
+    
+  } catch (err: any) {
+    console.error('Error preparing to add channel:', err);
+    logger.error('Error preparing to add channel:', { component: 'ChannelsView', method: 'addChannel', error: err });
+    
+    // Eğer hata mesajı zaten ayarlanmadıysa genel hata mesajını kullan
+    if (!error.value) {
+      error.value = languageStore.t('channels.errors.addFailed');
+    }
+    isLoading.value = false;
+  }
+};
+
+// Dil seçimi sonrası kanal için dil güncellemesi
+const updateChannelLanguage = async (language: string) => {
+  try {
+    // Modal'ı kapat
+    showLanguageModal.value = false;
+    
+    // Eğer geçici URL yoksa işlemi iptal et
+    if (!tempChannelUrl.value) {
+      console.error('No channel URL found for adding');
+      return;
+    }
+    
+    // Yükleme durumunu etkinleştir
+    isLoading.value = true;
+    
+    const sessionToken = authStore.getSession()?.access_token;
+    if (!sessionToken) {
+      console.error('No authentication token found');
+      isLoading.value = false;
+      return;
+    }
+    
+    // Kanal ekleme işlemini yap - seçilen dil ile birlikte
     const response = await fetch(`${import.meta.env.VITE_API_URL}/api/channels`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${sessionToken}`
       },
-      body: JSON.stringify({ channelUrl })
+      body: JSON.stringify({ 
+        channelUrl: tempChannelUrl.value,
+        language: language
+      })
     });
 
     if (!response.ok) {
@@ -224,96 +263,36 @@ const addChannel = async () => {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
+    // Kanal başarıyla eklendi
     const newChannelData = await response.json();
     
-    // Kanal başarıyla eklendi, şimdi dil seçme modalını göster
-    addedChannelId.value = newChannelData.id;
+    // Giriş alanını temizle
     newChannel.value = '';
+    tempChannelUrl.value = '';
     error.value = '';
-    
-    // Dil seçme modalını göster
-    showLanguageModal.value = true;
-    
-    // Not: Kanalı channels listesine hemen ekleme, dil seçiminden sonra yapılacak
-  } catch (err: any) {
-    console.error('Error adding channel:', err);
-    logger.error('Error adding channel:', { component: 'ChannelsView', method: 'addChannel', error: err });
-    
-    // Eğer hata mesajı zaten ayarlanmadıysa genel hata mesajını kullan
-    if (!error.value) {
-      error.value = languageStore.t('channels.errors.addFailed');
-    }
-  } finally {
-    // İşlem tamamlandığında yükleme durumunu kapat
-    isLoading.value = false;
-  }
-};
-
-// Dil seçimi sonrası kanal için dil güncellemesi
-const updateChannelLanguage = async (language: string) => {
-  try {
-    // Modal'ı kapat
-    showLanguageModal.value = false;
-    
-    if (!addedChannelId.value) {
-      console.error('No channel ID found for language update');
-      return;
-    }
-    
-    isLoading.value = true;
-    const sessionToken = authStore.getSession()?.access_token;
-    
-    if (!sessionToken) {
-      console.error('No authentication token found');
-      return;
-    }
-    
-    // Kanalın dil tercihini güncelle
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/channels/${addedChannelId.value}/language`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${sessionToken}`
-      },
-      body: JSON.stringify({ language })
-    });
-    
-    if (!response.ok) {
-      if (response.status === 401) {
-        await authStore.logout();
-        router.push('/');
-        return;
-      }
-      
-      console.error('Error updating channel language:', response.statusText);
-      // Burada kanalları yine de yükleyelim, dil ayarı ikincil önemde
-    }
     
     // Kanalları yeniden yükle
     await loadChannels();
     
   } catch (err) {
-    console.error('Error updating channel language:', err);
-    logger.error('Error updating channel language:', { 
+    console.error('Error adding channel with language:', err);
+    logger.error('Error adding channel with language:', { 
       component: 'ChannelsView', 
       method: 'updateChannelLanguage', 
       error: err,
-      channelId: addedChannelId.value
+      url: tempChannelUrl.value
     });
     
-    // Hata olsa bile kanalları yeniden yükle
-    await loadChannels();
   } finally {
     isLoading.value = false;
   }
 };
 
-// Dil modalını kapatma işlemi - kanalı varsayılan dille ekler
-const closeLanguageModal = async () => {
+// Dil modalını kapatma işlemi
+const closeLanguageModal = () => {
   showLanguageModal.value = false;
-  
-  // Varsayılan olarak kullanıcının seçtiği dili kullan
-  await updateChannelLanguage(languageStore.language);
+  tempChannelUrl.value = ''; // Geçici URL'yi temizle
+  isLoading.value = false;
 };
 
 const removeChannel = async (channelId: string) => {
@@ -349,17 +328,6 @@ const removeChannel = async (channelId: string) => {
   }
 };
 
-// Close menu when clicking outside
-const closeMenu = (e: MouseEvent) => {
-  const target = e.target as HTMLElement
-  const profileButton = document.querySelector('.profile-button')
-  const dropdownMenu = document.querySelector('.dropdown-menu')
-  
-  if (!profileButton?.contains(target) && !dropdownMenu?.contains(target)) {
-    isMenuOpen.value = false
-  }
-}
-
 // Add a function to extract video ID from URL
 const getVideoId = (url: string): string => {
   if (!url) return '';
@@ -386,85 +354,34 @@ const getVideoId = (url: string): string => {
   return (match && match[2].length === 11) ? match[2] : '';
 }
 
-onMounted(async () => {
-  await authStore.checkUser()
-  await loadChannels()
-  document.addEventListener('click', closeMenu)
+onMounted(() => {
+  console.log('ChannelsView mounted, loading channels');
+  console.log('Current language:', languageStore.currentLocale);
+  
+  // Kanalları yükle
+  loadChannels();
+  
+  // Dil değişikliğini dinle
+  languageStore.onLanguageChange((lang: string) => {
+    console.log('🔍 ChannelsView - Dil değişikliği algılandı:', lang);
+    console.log('🔍 ChannelsView - Mevcut sayfa:', window.location.pathname);
+    console.log('🔍 ChannelsView - forceRender değeri şu anda:', forceRender.value);
+    
+    // Kanalları yeniden yükle
+    loadChannels();
+    // Alt bileşenleri yeniden render etmek için forceRender'ı artır
+    forceRender.value++;
+    console.log('🔍 ChannelsView - forceRender değeri güncellendi:', forceRender.value);
+  });
 })
 
 onUnmounted(() => {
-  document.removeEventListener('click', closeMenu)
+  // This was causing the linter error as closeMenu is not defined
 })
 </script>
 
 <template>
   <div class="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-    <!-- Auth Section -->
-    <div class="fixed top-0 right-0 p-4 z-50">
-      <template v-if="authStore.user">
-        <div class="relative">
-          <button
-            @click.stop="isMenuOpen = !isMenuOpen"
-            class="profile-button flex items-center gap-2 bg-white p-2 sm:p-3 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 group border border-gray-100"
-          >
-            <div class="text-right hidden sm:block">
-              <p class="text-sm font-medium text-gray-900">{{ authStore.user?.user_metadata?.full_name || languageStore.t('common.user') }}</p>
-            </div>
-            <div class="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center text-white group-hover:bg-indigo-600 transition-colors">
-              {{ authStore.user?.user_metadata?.full_name?.[0].toUpperCase() || languageStore.t('common.userInitial') }}
-            </div>
-          </button>
-
-          <!-- Dropdown Menu -->
-          <div
-            v-if="isMenuOpen"
-            class="dropdown-menu absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50 border border-gray-100"
-          >
-            <router-link
-              to="/summaries"
-              class="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
-              @click="isMenuOpen = false"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <span>{{ languageStore.t('navigation.summaries') }}</span>
-            </router-link>
-            <router-link
-              to="/"
-              class="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
-              @click="isMenuOpen = false"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
-              </svg>
-              <span>{{ languageStore.t('navigation.home') }}</span>
-            </router-link>
-            <div class="border-t border-gray-100 my-1"></div>
-            <button
-              @click="authStore.logout"
-              class="flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 w-full text-left"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd" />
-              </svg>
-              <span>{{ languageStore.t('common.signOut') }}</span>
-            </button>
-          </div>
-        </div>
-      </template>
-      <template v-else>
-        <button
-          @click="authStore.login"
-          class="flex items-center gap-1.5 px-4 py-2 bg-white text-gray-700 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm"
-          :disabled="authStore.loading"
-        >
-          <img src="https://www.google.com/favicon.ico" alt="Google" class="w-4 h-4" />
-          <span class="text-sm font-medium">{{ languageStore.t('common.signInWithGoogle') }}</span>
-        </button>
-      </template>
-    </div>
-
     <!-- Main Content -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20">
       <!-- Info Cards -->
@@ -599,7 +516,7 @@ onUnmounted(() => {
         <!-- Channels Grid -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           <div v-for="channel in channels" 
-               :key="channel.id"
+               :key="`${channel.id}-${forceRender}`"
                class="group bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 overflow-hidden border border-gray-100/50 relative transform hover:-translate-y-1">
             
             <!-- Channel Header with Gradient Overlay -->
@@ -661,8 +578,8 @@ onUnmounted(() => {
             <!-- Actions -->
             <div class="p-4 border-t border-gray-100 flex items-center justify-between">
               <router-link 
-                :to="`/channels/${channel.id}`"
-                class="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 shadow-sm hover:shadow group/btn"
+                :to="{path: '/summaries', query: { channel_id: channel.id }}"
+                class="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 shadow-sm hover:shadow group/btn min-w-[160px] justify-center"
               >
                 <span>{{ languageStore.t('channels.actions.view') }}</span>
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transform group-hover/btn:translate-x-0.5 transition-transform" viewBox="0 0 20 20" fill="currentColor">

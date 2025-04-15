@@ -1,35 +1,36 @@
 <script setup lang="ts">
 import { useLanguageStore } from '../../stores/languageStore';
+import { computed } from 'vue';
 
 const languageStore = useLanguageStore();
 
-// Referanslar için veri modeli (ileride API'den gelebilir)
-const testimonials = [
+// Referanslar için veri modeli - computed olarak tanımlıyoruz
+const testimonials = computed(() => [
   {
     id: 1,
-    name: 'Felix Chen',
-    role: 'Product Designer',
+    name: languageStore.t('home.testimonials.testimonials.felix.name'),
+    role: languageStore.t('home.testimonials.testimonials.felix.role'),
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix',
-    content: '"This tool has completely transformed how I consume video content. The AI summaries are incredibly accurate and save me hours of time."',
+    content: languageStore.t('home.testimonials.testimonials.felix.content'),
     color: 'from-indigo-500 to-purple-600'
   },
   {
     id: 2,
-    name: 'Sarah Johnson',
-    role: 'Content Creator',
+    name: languageStore.t('home.testimonials.testimonials.sarah.name'),
+    role: languageStore.t('home.testimonials.testimonials.sarah.role'),
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah',
-    content: '"The transcript feature is a game-changer for content creators like me. It helps me create better content by analyzing successful videos."',
+    content: languageStore.t('home.testimonials.testimonials.sarah.content'),
     color: 'from-fuchsia-500 to-pink-600'
   },
   {
     id: 3,
-    name: 'Michael Torres',
-    role: 'Student',
+    name: languageStore.t('home.testimonials.testimonials.michael.name'),
+    role: languageStore.t('home.testimonials.testimonials.michael.role'),
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Michael',
-    content: '"As a student, this tool helps me quickly understand complex topics from educational videos. The key ideas feature is particularly helpful."',
+    content: languageStore.t('home.testimonials.testimonials.michael.content'),
     color: 'from-cyan-500 to-blue-600'
   }
-];
+]);
 </script>
 
 <template>

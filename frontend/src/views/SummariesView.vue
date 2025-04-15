@@ -3,7 +3,7 @@ import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useLanguageStore } from '../stores/languageStore'
 import { useAuthStore } from '../stores/auth'
 import { getVideoId } from '../utils/youtube'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { supabase } from '../config/supabase'
 import { FormatService } from '../services/formatService'
 
@@ -23,20 +23,29 @@ interface Summary {
   is_read: boolean;
 }
 
+interface Channel {
+  id: string;
+  title: string;
+  thumbnail_url: string;
+}
+
 type VideoSummary = Summary;
 
 const languageStore = useLanguageStore()
 const authStore = useAuthStore()
 const activeTab = ref('all') // all, today, week, month
 const selectedLanguage = ref('all') // all, tr, en
+const selectedChannel = ref('all') // all, veya kanal ID'si
 const selectedSummary = ref<VideoSummary | null>(null)
 const isMenuOpen = ref(false)
 const error = ref('')
 
 const summaries = ref<Summary[]>([])
+const channels = ref<Channel[]>([])
 const isLoading = ref(false)
 
 const router = useRouter()
+const route = useRoute()
 
 // Computed properties for filtered summaries
 const filteredSummaries = computed(() => {
@@ -76,8 +85,11 @@ const filteredSummaries = computed(() => {
 
       // Then filter by language
       const languageMatches = selectedLanguage.value === 'all' || summary.language === selectedLanguage.value
+      
+      // Then filter by channel
+      const channelMatches = selectedChannel.value === 'all' || summary.channel_id === selectedChannel.value
 
-      return dateMatches && languageMatches
+      return dateMatches && languageMatches && channelMatches
     })
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) // En yeni özetler üstte
 })
@@ -133,6 +145,36 @@ const fetchSummaries = async () => {
   }
 };
 
+// Kanal bilgilerini çekmek için yeni fonksiyon
+const fetchChannels = async () => {
+  try {
+    const token = await supabase.auth.getSession();
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/channels`, {
+      headers: {
+        'Authorization': `Bearer ${token.data.session?.access_token}`
+      }
+    });
+    
+    if (!response.ok) {
+      console.error('Failed to fetch channels');
+      return;
+    }
+
+    const data = await response.json();
+    console.log('Channels API Response:', data);
+
+    channels.value = data.map((item: any) => ({
+      id: item.id,
+      title: item.title,
+      thumbnail_url: item.thumbnail_url
+    }));
+
+    console.log('Mapped channels:', channels.value);
+  } catch (err) {
+    console.error('Error fetching channels:', err);
+  }
+};
+
 // Close menu when clicking outside
 const closeMenu = (e: MouseEvent) => {
   const target = e.target as HTMLElement
@@ -145,9 +187,102 @@ const closeMenu = (e: MouseEvent) => {
 }
 
 onMounted(() => {
-  console.log('Component mounted, loading summaries...')
+  console.log('Component mounted, loading summaries and channels...')
+  console.log('Current language in SummariesView:', languageStore.currentLocale)
+  
   fetchSummaries()
+  fetchChannels()
   document.addEventListener('click', closeMenu)
+  
+  // App.vue'dan gönderilen özel dil değişikliği eventlerini dinle
+  const handlePreLanguageChange = (e: any) => {
+    console.log('🔍 SummariesView - pre-language-change eventi alındı:', e.detail);
+    // Dil değişikliği başlamadan önce yapılacak işlemler
+    isLanguageChanging = true;
+  };
+  
+  const handlePostLanguageChange = (e: any) => {
+    console.log('🔍 SummariesView - post-language-change eventi alındı:', e.detail);
+    // Dil değişikliğinden hemen sonra yapılacak işlemler
+    forceRender.value++;
+    console.log('🔍 SummariesView - forceRender değeri güncellendi:', forceRender.value);
+    
+    // İşlem tamamlandı
+    setTimeout(() => {
+      isLanguageChanging = false;
+    }, 100);
+  };
+  
+  document.addEventListener('pre-language-change', handlePreLanguageChange);
+  document.addEventListener('post-language-change', handlePostLanguageChange);
+  
+  // URL'den channel_id parametresini kontrol et
+  const channelIdFromRoute = route.query.channel_id as string
+  if (channelIdFromRoute) {
+    console.log('Channel ID from route:', channelIdFromRoute)
+    selectedChannel.value = channelIdFromRoute
+  }
+  
+  // Sayfa yenilemesini engellemek için önlemler - EN AGRESİF YÖNTEM
+  
+  // 1. Form submit ve sayfa geçişlerini önle
+  const preventRefresh = (e: Event) => {
+    console.log('Sayfa yenileme engelleniyor (event):', e.type);
+    e.preventDefault();
+    e.stopPropagation();
+    return false;
+  };
+  
+  // Sayfa içindeki tüm formları ve sayfa geçişlerini kontrol et
+  document.querySelectorAll('form').forEach(form => {
+    form.addEventListener('submit', preventRefresh);
+  });
+  
+  // 2. Sayfa öncesi yenilenmesini engellemek için beforeunload event listener'ı ekle
+  const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+    // Sadece summaries sayfasındayken engelle
+    if (window.location.pathname.includes('/summaries')) {
+      console.log('Sayfa yenilenmesi engelleniyor (beforeunload)');
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    }
+  };
+  window.addEventListener('beforeunload', handleBeforeUnload);
+  
+  // 3. History API'yi override et
+  const originalPushState = window.history.pushState;
+  window.history.pushState = function() {
+    console.log('History pushState engelleniyor:', arguments);
+    return originalPushState.apply(this, arguments as any);
+  };
+  
+  const originalReplaceState = window.history.replaceState;
+  window.history.replaceState = function() {
+    console.log('History replaceState engelleniyor:', arguments);
+    return originalReplaceState.apply(this, arguments as any);
+  };
+
+  // UnMounted hook ekliyoruz
+  onUnmounted(() => {
+    document.removeEventListener('click', closeMenu);
+    
+    // Özel eventleri kaldır
+    document.removeEventListener('pre-language-change', handlePreLanguageChange);
+    document.removeEventListener('post-language-change', handlePostLanguageChange);
+    
+    // Eklediğimiz event listener'ları kaldıralım
+    window.removeEventListener('beforeunload', handleBeforeUnload);
+    
+    // Override edilen history API metotlarını geri yükle
+    window.history.pushState = originalPushState;
+    window.history.replaceState = originalReplaceState;
+    
+    // Formlardaki event listener'ları kaldır
+    document.querySelectorAll('form').forEach(form => {
+      form.removeEventListener('submit', preventRefresh);
+    });
+  });
 })
 
 onUnmounted(() => {
@@ -375,6 +510,18 @@ const shareOnLinkedIn = (summary: Summary) => {
   const encodedUrl = encodeURIComponent(summary.video_url);
   window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}&summary=${encodedText}`, '_blank');
 };
+
+// Seçilen kanalın adını göstermek için computed property
+const selectedChannelTitle = computed(() => {
+  if (selectedChannel.value === 'all') return null
+  const channel = channels.value.find(c => c.id === selectedChannel.value)
+  return channel ? channel.title : null
+})
+
+const forceRender = ref(0)
+
+// Dil değişikliği kontrolü için global değişken
+let isLanguageChanging = false;
 </script>
 
 <template>
@@ -414,6 +561,21 @@ const shareOnLinkedIn = (summary: Summary) => {
 
         <!-- Filter Tabs -->
         <div class="flex flex-wrap gap-2 sm:gap-4 mb-6">
+          <!-- Selected Channel Title -->
+          <div v-if="selectedChannelTitle" class="w-full mb-2 bg-indigo-50 p-3 rounded-lg border-l-4 border-indigo-500">
+            <div class="flex items-center justify-between">
+              <h3 class="text-indigo-700 font-medium">
+                {{ selectedChannelTitle }}
+              </h3>
+              <button 
+                @click="selectedChannel = 'all'" 
+                class="text-xs font-medium text-indigo-600 hover:text-indigo-800 px-2 py-1 bg-white rounded-md hover:shadow-sm transition-all"
+              >
+                {{ languageStore.t('summaries.channels.all') }}
+              </button>
+            </div>
+          </div>
+          
           <!-- Time Filter Buttons -->
           <div class="flex flex-wrap gap-1.5 sm:gap-2">
             <button
@@ -458,6 +620,20 @@ const shareOnLinkedIn = (summary: Summary) => {
               </button>
             </div>
           </div>
+          
+          <!-- Channel Filter Dropdown -->
+          <div class="flex items-center gap-1.5 sm:gap-2">
+            <span class="text-xs sm:text-sm text-gray-500">{{ languageStore.t('summaries.channels.title') }}:</span>
+            <select 
+              v-model="selectedChannel"
+              class="px-3 py-1.5 bg-gray-50 rounded-lg text-xs sm:text-sm font-medium border border-gray-200 hover:border-indigo-300 focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 transition-all duration-300"
+            >
+              <option value="all">{{ languageStore.t('summaries.channels.all') }}</option>
+              <option v-for="channel in channels" :key="channel.id" :value="channel.id">
+                {{ channel.title }}
+              </option>
+            </select>
+          </div>
         </div>
 
         <!-- Loading State -->
@@ -480,7 +656,7 @@ const shareOnLinkedIn = (summary: Summary) => {
         <!-- Summaries Grid -->
         <div v-else-if="filteredSummaries.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div v-for="summary in filteredSummaries" 
-               :key="summary.id"
+               :key="`${summary.id}-${forceRender}`"
                @click="handleSummaryClick(summary)"
                class="group bg-gradient-to-br from-white to-gray-50/50 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 cursor-pointer">
             <!-- Summary Header -->
@@ -534,15 +710,28 @@ const shareOnLinkedIn = (summary: Summary) => {
           </div>
         </div>
         <!-- No Summaries After Filtering -->
-        <div v-else class="text-center py-12">
-          <div class="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-full flex items-center justify-center group">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-indigo-500 group-hover:rotate-12 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div v-else-if="hasNoSummaries" class="text-center py-12">
+          <div class="w-20 h-20 mx-auto mb-4 flex items-center justify-center bg-gray-100 rounded-full">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
           </div>
-          <h3 class="mt-4 text-lg font-medium bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+          <h3 class="text-lg font-medium text-gray-800 mb-2">{{ languageStore.t('summaries.noSummaries') }}</h3>
+          
+          <!-- Show special message when a channel is selected but has no summaries -->
+          <p v-if="selectedChannel !== 'all'" class="text-gray-600 mb-6">
+            {{ languageStore.t('summaries.channels.noSummariesForChannel') }}
+          </p>
+          <p v-else class="text-gray-600 mb-6">
             {{ languageStore.t('summaries.noSummaries') }}
-          </h3>
+          </p>
+          
+          <router-link to="/channels" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>{{ languageStore.t('summaries.channels.addChannel') }}</span>
+          </router-link>
         </div>
       </div>
     </div>

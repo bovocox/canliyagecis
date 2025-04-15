@@ -1,12 +1,54 @@
 <script setup lang="ts">
 import { RouterView } from 'vue-router'
-import { watch } from 'vue'
+import { watch, computed, ref, onMounted, onUnmounted } from 'vue'
 import { useLanguageStore } from './stores/languageStore'
+import { useAuthStore } from './stores/auth'
+import { useRouter } from 'vue-router'
 
 const languageStore = useLanguageStore()
+const authStore = useAuthStore()
+const router = useRouter()
+
+// Check if user is authenticated
+const isAuthenticated = computed(() => !!authStore.user)
+const isMenuOpen = ref(false)
 
 const switchLanguage = (lang: 'tr' | 'en') => {
-  languageStore.setLanguage(lang)
+  // Sadece dil değişikliğini gerçekleştir, asla sayfayı yenileme
+  console.log(`Dil değiştiriliyor: ${lang}, Sayfa: ${router.currentRoute.value.path}`);
+  
+  // Summaries sayfasındaysak, özel işleme uygula
+  if (router.currentRoute.value.path === '/summaries') {
+    console.log('🔍 Summaries sayfasında dil değişimi - özel işlem uygulanıyor');
+    
+    // Önce bir event yayınla, böylece bileşen dinleyebilir
+    document.dispatchEvent(new CustomEvent('pre-language-change', { detail: { lang } }));
+    
+    // Sonra dili değiştir
+    languageStore.setLanguage(lang, false);
+    
+    // Sayfa yenilemesi olmadan hemen sonra bir event daha yayınla
+    setTimeout(() => {
+      document.dispatchEvent(new CustomEvent('post-language-change', { detail: { lang } }));
+    }, 100);
+  } else {
+    // Diğer sayfalarda normal işlemi yap
+    languageStore.setLanguage(lang, false);
+  }
+  
+  // Önemli: Tüm komponentlerin yeniden renderlanması language store'da dil 
+  // değiştiğinde otomatik olarak gerçekleşiyor
+}
+
+// Close menu when clicking outside
+const closeMenu = (e: MouseEvent) => {
+  const target = e.target as HTMLElement
+  const profileButton = document.querySelector('.profile-button')
+  const dropdownMenu = document.querySelector('.dropdown-menu')
+  
+  if (!profileButton?.contains(target) && !dropdownMenu?.contains(target)) {
+    isMenuOpen.value = false
+  }
 }
 
 // Update title when language changes
@@ -14,9 +56,30 @@ watch(
   () => languageStore.currentLocale,
   () => {
     document.title = languageStore.t('common.siteTitle')
+    console.log('Language changed globally, title updated:', document.title)
   },
   { immediate: true }
 )
+
+onMounted(() => {
+  document.addEventListener('click', closeMenu)
+  
+  // Router afterEach hook ile her sayfa değiştiğinde dil kontrolü
+  router.afterEach((to, from) => {
+    console.log(`Route changed from ${from.path} to ${to.path}, language: ${languageStore.currentLocale}`);
+    
+    // Sayfa değiştiğinde lokalden kaydedilmiş dil varsa kontrol et
+    const savedLocale = localStorage.getItem('userLocale');
+    if (savedLocale && (savedLocale === 'tr' || savedLocale === 'en') && savedLocale !== languageStore.currentLocale) {
+      console.warn(`Language mismatch - Saved: ${savedLocale}, Current: ${languageStore.currentLocale}. Fixing...`);
+      languageStore.setLanguage(savedLocale, false);
+    }
+  });
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeMenu)
+})
 </script>
 
 <template>
@@ -30,6 +93,73 @@ watch(
             <img src="/logo.svg" alt="Veciz AI" class="h-12 w-12" />
             <span class="text-2xl font-black bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-transparent bg-clip-text tracking-tight">Veciz AI</span>
           </router-link>
+
+          <!-- Right side navigation -->
+          <div class="flex items-center gap-4">
+            <!-- User Menu -->
+            <div class="relative">
+              <template v-if="authStore.user">
+                <button
+                  @click.stop="isMenuOpen = !isMenuOpen"
+                  class="profile-button flex items-center gap-2 bg-white p-2 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 group border border-gray-100"
+                >
+                  <div class="text-right hidden sm:block">
+                    <p class="text-sm font-medium text-gray-900">{{ authStore.user?.user_metadata?.full_name || languageStore.t('common.user') }}</p>
+                  </div>
+                  <div class="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center text-white group-hover:bg-indigo-600 transition-colors">
+                    {{ authStore.user?.user_metadata?.full_name?.[0].toUpperCase() || languageStore.t('common.userInitial') }}
+                  </div>
+                </button>
+
+                <!-- Dropdown Menu -->
+                <div
+                  v-if="isMenuOpen"
+                  class="dropdown-menu absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50 border border-gray-100"
+                >
+                  <router-link
+                    to="/summaries"
+                    class="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                    @click="isMenuOpen = false"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span>{{ languageStore.t('navigation.summaries') }}</span>
+                  </router-link>
+                  <router-link
+                    to="/channels"
+                    class="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                    @click="isMenuOpen = false"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+                    </svg>
+                    <span>{{ languageStore.t('navigation.channels') }}</span>
+                  </router-link>
+                  <div class="border-t border-gray-100 my-1"></div>
+                  <button
+                    @click="authStore.logout"
+                    class="flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 w-full text-left"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd" />
+                    </svg>
+                    <span>{{ languageStore.t('common.signOut') }}</span>
+                  </button>
+                </div>
+              </template>
+              <template v-else>
+                <button
+                  @click="authStore.login"
+                  class="flex items-center gap-1.5 px-4 py-2 bg-white text-gray-700 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors shadow-md"
+                  :disabled="authStore.loading"
+                >
+                  <img src="https://www.google.com/favicon.ico" alt="Google" class="w-4 h-4" />
+                  <span class="text-sm font-medium">{{ languageStore.t('common.signInWithGoogle') }}</span>
+                </button>
+              </template>
+            </div>
+          </div>
         </div>
       </div>
     </nav>
@@ -42,23 +172,23 @@ watch(
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div>
-          <h3 class="text-lg font-semibold mb-4">{{ languageStore.t('footer.about.title') }}</h3>
+          <h3 class="text-lg font-semibold mb-4">{{ languageStore.t('home.footer.about.title') }}</h3>
           <p class="text-gray-600">
-            {{ languageStore.t('footer.about.description') }}
+            {{ languageStore.t('home.footer.about.description') }}
           </p>
         </div>
         <div>
-          <h3 class="text-lg font-semibold mb-4">{{ languageStore.t('footer.quickLinks.title') }}</h3>
+          <h3 class="text-lg font-semibold mb-4">{{ languageStore.t('home.footer.quickLinks.title') }}</h3>
           <ul class="space-y-2">
             <li>
-              <a href="/" class="text-accent hover:underline">{{ languageStore.t('footer.quickLinks.home') }}</a>
+              <a href="/" class="text-accent hover:underline">{{ languageStore.t('home.footer.quickLinks.home') }}</a>
             </li>
           </ul>
         </div>
         <div>
-          <h3 class="text-lg font-semibold mb-4">{{ languageStore.t('footer.contact.title') }}</h3>
+          <h3 class="text-lg font-semibold mb-4">{{ languageStore.t('home.footer.contact.title') }}</h3>
           <p class="text-gray-600">
-            {{ languageStore.t('footer.contact.description') }}
+            {{ languageStore.t('home.footer.contact.description') }}
           </p>
         </div>
       </div>
@@ -71,14 +201,14 @@ watch(
       <button
         @click="switchLanguage('tr')"
         class="px-3 py-1.5 rounded-md text-sm font-medium"
-        :class="languageStore.currentLocale === 'tr' ? 'bg-accent text-white' : 'text-gray-600 hover:bg-gray-100'"
+        :class="languageStore.currentLocale === 'tr' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-100'"
       >
         TR
       </button>
       <button
         @click="switchLanguage('en')"
         class="px-3 py-1.5 rounded-md text-sm font-medium"
-        :class="languageStore.currentLocale === 'en' ? 'bg-accent text-white' : 'text-gray-600 hover:bg-gray-100'"
+        :class="languageStore.currentLocale === 'en' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-100'"
       >
         EN
       </button>
