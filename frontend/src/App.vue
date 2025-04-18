@@ -158,8 +158,8 @@ onUnmounted(() => {
         <div class="flex items-center justify-between h-16">
           <!-- Logo -->
           <router-link to="/" class="flex items-center gap-2">
-            <img src="/logo.svg" alt="Veciz AI" class="h-12 w-12" />
-            <span class="text-2xl font-black bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-transparent bg-clip-text tracking-tight">Veciz AI</span>
+            <img src="/logo.svg" alt="Veciz" class="h-12 w-12" />
+            <span class="text-2xl font-black bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-transparent bg-clip-text tracking-tight">Veciz</span>
           </router-link>
 
           <!-- Right side navigation -->

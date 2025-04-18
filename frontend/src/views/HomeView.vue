@@ -4,10 +4,10 @@ import { useAuthStore } from '../stores/auth'
 import { useLanguageStore } from '@/stores/languageStore'
 import { getVideoId } from '../utils/youtube'
 import apiService from '../services/apiService'
-import pollingService from '@/services/pollingService';
-import { FormatService } from '@/services/formatService';
+import pollingService from '@/services/pollingService'
+import { FormatService } from '@/services/formatService'
 import type { AuthUser } from '@/types/auth'
-import type { TranscriptItem, VideoData, VideoSummary } from '@/types/video'
+import type { TranscriptItem, VideoData } from '@/types/video'
 import { VideoProcessingService } from '@/services/videoProcessingService'
 import { useVideoStore } from '../stores/videoStore'
 import Spinner from '../components/Spinner.vue'
@@ -19,6 +19,34 @@ import DetailModal from '../components/modals/DetailModal.vue'
 import TranscriptModal from '../components/modals/TranscriptModal.vue'
 import LanguageModal from '../components/modals/LanguageModal.vue'
 import { debounce } from 'lodash-es'
+import { supabase } from '@/config/supabase'
+
+interface VideoSummary {
+  id: string;
+  channelName: string;
+  channelAvatar: string;
+  videoTitle: string;
+  videoThumbnail: string;
+  summary: string;
+  publishedAt: string;
+  videoUrl: string;
+  isRead: boolean;
+  language: string;
+}
+
+interface RecentSummary {
+  id: string;
+  video_id: string;
+  content: string;
+  status: string;
+  created_at: string;
+  language: string;
+  videos: {
+    title: string;
+    thumbnail_url: string;
+    channel_title: string;
+  };
+}
 
 const languageStore = useLanguageStore()
 const authStore = useAuthStore()
@@ -45,6 +73,8 @@ const showTranscriptModal = ref(false)
 const selectedSummary = ref<VideoSummary | null>(null)
 const summaries = ref<VideoSummary[]>([])
 const forceRender = ref(0)
+const recentSummaries = ref<RecentSummary[]>([])
+const isLoadingRecentSummaries = ref(false)
 
 const videoData = computed(() => videoStore.videoData);
 
@@ -103,6 +133,64 @@ let cleanupLanguageListener: (() => void) | null = null;
 
 // First, add the showDebug ref that's missing
 const showDebug = ref(false);
+
+// Add function to fetch recent summaries
+const fetchRecentSummaries = async () => {
+  try {
+    isLoadingRecentSummaries.value = true;
+    
+    // Check authentication
+    if (!isAuthenticated.value) {
+      console.warn('User is not authenticated');
+      return;
+    }
+
+    // Get session token
+    const token = await supabase.auth.getSession();
+    if (!token.data.session?.access_token) {
+      console.error('No authentication token available');
+      return;
+    }
+
+    console.log('Fetching recent summaries...');
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/summaries/recent`, {
+      headers: {
+        'Authorization': `Bearer ${token.data.session.access_token}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch recent summaries: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('Recent summaries API response:', {
+      status: response.status,
+      data: data
+    });
+    
+    if (!Array.isArray(data)) {
+      console.error('Received invalid data format:', data);
+      return;
+    }
+
+    recentSummaries.value = data;
+  } catch (err) {
+    console.error('Error fetching recent summaries:', err);
+    error.value = err instanceof Error ? err.message : 'Failed to load recent summaries';
+  } finally {
+    isLoadingRecentSummaries.value = false;
+  }
+};
+
+// Add function to handle thumbnail click
+const handleThumbnailClick = async (videoId: string) => {
+  // Set the video ID
+  videoStore.setVideoId(videoId);
+  
+  // Process the video with current language
+  await videoProcessingService.handleVideoProcess(videoId, languageStore.currentLocale);
+};
 
 // Component oluşturulduğunda
 onMounted(async () => {
@@ -185,6 +273,9 @@ onMounted(async () => {
     console.error('Error loading default video:', err);
     error.value = err instanceof Error ? err.message : 'Failed to load default video';
   }
+
+  // Fetch recent summaries
+  await fetchRecentSummaries();
 });
 
 onUnmounted(() => {
@@ -631,7 +722,7 @@ const formattedSummary = computed(() => {
 // Add formattedSummaryPreview computed property
 const formattedSummaryPreview = computed(() => {
   if (!videoData.value?.summary) return '';
-  const maxLength = 400;
+  const maxLength = 650;
   const summaryText = videoData.value.summary.trim();
   const truncatedText = summaryText.length > maxLength 
     ? summaryText.substring(0, maxLength).trim() + '...' 
@@ -720,22 +811,46 @@ const formattedSummaryPreview = computed(() => {
               ></iframe>
             </div>
             <div class="mt-6">
-              <h2 class="text-xl font-bold text-gray-900">{{ videoData.title }}</h2>
-              <div class="mt-2 flex items-center space-x-3 text-sm text-gray-600">
-                <div class="flex items-center space-x-1">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                    <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
-                  <span>{{ videoData.views }}</span>
-                </div>
-                <span>•</span>
-                <div class="flex items-center space-x-1">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM1 11a1 1 0 00-1 1h2a1 1 0 001-1z" />
-                  </svg>
-                  <span>{{ videoData.date }}</span>
-                </div>
+              <h2 class="text-xl font-bold text-gray-900 mb-4">{{ videoData.title }}</h2>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <template v-if="isLoadingRecentSummaries">
+                  <div v-for="n in 4" :key="n" class="animate-pulse">
+                    <div class="aspect-video bg-gray-200 rounded-lg"></div>
+                    <div class="mt-2 h-4 bg-gray-200 rounded w-3/4"></div>
+                  </div>
+                </template>
+                <template v-else-if="recentSummaries.length > 0">
+                  <div v-for="summary in recentSummaries" :key="summary.id" 
+                       @click="handleThumbnailClick(summary.video_id)"
+                       class="cursor-pointer group">
+                    <div class="relative aspect-video overflow-hidden rounded-lg bg-gray-100">
+                      <img :src="summary.videos?.thumbnail_url || `https://img.youtube.com/vi/${summary.video_id}/maxresdefault.jpg`"
+                           :alt="summary.videos?.title || 'Video thumbnail'"
+                           class="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105" 
+                           loading="lazy"
+                           @error="(e: Event) => { 
+                             const imgElement = e.target as HTMLImageElement;
+                             if (imgElement) {
+                               imgElement.src = `https://img.youtube.com/vi/${summary.video_id}/hqdefault.jpg`;
+                             }
+                           }"/>
+                      <div class="absolute inset-0 bg-black bg-opacity-40 group-hover:bg-opacity-30 transition-opacity"></div>
+                      <div class="absolute bottom-2 left-2 right-2">
+                        <p class="text-white text-sm line-clamp-2 font-medium">
+                          {{ summary.videos?.title || 'Video başlığı yükleniyor...' }}
+                        </p>
+                        <p class="text-white/80 text-xs mt-1">
+                          {{ summary.videos?.channel_title || 'Kanal yükleniyor...' }}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+                <template v-else>
+                  <div class="col-span-4 py-8 text-center text-gray-500">
+                    {{ languageStore.t('home.noRecentSummaries') }}
+                  </div>
+                </template>
               </div>
             </div>
           </div>
@@ -1135,5 +1250,10 @@ body {
   padding: 0.1em 0.3em;
   border-radius: 3px;
   font-weight: 500;
+}
+
+.aspect-video {
+  aspect-ratio: 16/9;
+  width: 100%;
 }
 </style>

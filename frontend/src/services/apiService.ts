@@ -457,6 +457,23 @@ export class ApiService {
       return false;
     }
   }
+
+  async getRecentSummaries(limit: number = 4): Promise<ApiResponse<any[]>> {
+    try {
+      const response = await fetch(`${this.baseUrl}/api/summaries/recent?limit=${limit}`, {
+        headers: this.getHeaders()
+      });
+
+      if (!response.ok) {
+        await this.handleApiError(response);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching recent summaries:', error);
+      throw error;
+    }
+  }
 }
 
 // Export default instance
