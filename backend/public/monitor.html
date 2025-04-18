@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veciz AI İşlem Monitörü</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background-color: #f5f5f7;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        header {
+            background: #0066ff;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .input-section {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            flex-direction: column;
+        }
+        .form-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            background: #0066ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background: #0052cc;
+        }
+        button:disabled {
+            background: #b3b3b3;
+            cursor: not-allowed;
+        }
+        .log-section {
+            padding: 20px;
+        }
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .log-container {
+            background: #f0f0f0;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: monospace;
+            height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .log-entry {
+            margin-bottom: 5px;
+            border-left: 3px solid #ddd;
+            padding-left: 10px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .log-entry.info {
+            border-left-color: #0066ff;
+        }
+        .log-entry.success {
+            border-left-color: #00cc66;
+        }
+        .log-entry.warning {
+            border-left-color: #ffcc00;
+        }
+        .log-entry.error {
+            border-left-color: #ff3333;
+        }
+        .timestamp {
+            color: #666;
+            font-size: 0.8em;
+            margin-right: 8px;
+        }
+        .status-bar {
+            background: #f5f5f7;
+            padding: 10px 20px;
+            border-top: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+        }
+        .radio-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+        }
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+        }
+        .stats-section {
+            margin-top: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            padding: 15px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 4px;
+            padding: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .stat-card h4 {
+            margin: 0 0 5px 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #0066ff;
+        }
+        .step-indicator {
+            display: flex;
+            padding: 15px 20px;
+            overflow-x: auto;
+            background: #f8f9fa;
+            border-bottom: 1px solid #eee;
+        }
+        .step {
+            display: flex;
+            align-items: center;
+            margin-right: 30px;
+            position: relative;
+        }
+        .step:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            right: -20px;
+            width: 10px;
+            height: 10px;
+            border-top: 2px solid #ddd;
+            border-right: 2px solid #ddd;
+            transform: rotate(45deg);
+        }
+        .step-number {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            color: #666;
+            font-weight: bold;
+        }
+        .step.active .step-number {
+            background: #0066ff;
+            color: white;
+        }
+        .step.completed .step-number {
+            background: #00cc66;
+            color: white;
+        }
+        .step-text {
+            font-size: 14px;
+            color: #666;
+        }
+        .step.active .step-text {
+            color: #0066ff;
+            font-weight: 500;
+        }
+        .step.completed .step-text {
+            color: #00cc66;
+        }
+        .job-details {
+            margin-top: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            padding: 15px;
+        }
+        .job-details h3 {
+            margin-top: 0;
+        }
+        .job-data {
+            font-family: monospace;
+            background: #fff;
+            border-radius: 4px;
+            padding: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-size: 14px;
+        }
+        .loader {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0, 102, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #0066ff;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .refresh-btn {
+            background: #f0f0f0;
+            color: #666;
+            font-size: 14px;
+            padding: 5px 10px;
+            margin-left: 10px;
+        }
+        .refresh-btn:hover {
+            background: #e0e0e0;
+        }
+        .job-status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: 500;
+            margin-left: 10px;
+        }
+        .job-status.waiting {
+            background: #e0f7ff;
+            color: #0066ff;
+        }
+        .job-status.active {
+            background: #fff6e0;
+            color: #ff9900;
+        }
+        .job-status.completed {
+            background: #e0ffe0;
+            color: #00cc66;
+        }
+        .job-status.failed {
+            background: #ffe0e0;
+            color: #ff3333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Veciz AI İşlem Monitörü</h1>
+        </header>
+        
+        <div class="input-section">
+            <div class="form-group">
+                <input type="text" id="video-url" placeholder="YouTube Video URL veya ID (örn. https://www.youtube.com/watch?v=VIDEOID veya VIDEOID)" />
+                <button id="start-btn">İşlemi Başlat</button>
+            </div>
+            <div class="radio-group">
+                <label>
+                    <input type="radio" name="process-type" value="transcript" checked> 
+                    Sadece Transkript
+                </label>
+                <label>
+                    <input type="radio" name="process-type" value="summary"> 
+                    Transkript + Özet
+                </label>
+            </div>
+        </div>
+        
+        <div class="step-indicator">
+            <div class="step" data-step="1">
+                <div class="step-number">1</div>
+                <div class="step-text">Video Bilgisi Alınıyor</div>
+            </div>
+            <div class="step" data-step="2">
+                <div class="step-number">2</div>
+                <div class="step-text">Queue'ya Ekleniyor</div>
+            </div>
+            <div class="step" data-step="3">
+                <div class="step-number">3</div>
+                <div class="step-text">Transcript Worker Çalışıyor</div>
+            </div>
+            <div class="step" data-step="4">
+                <div class="step-number">4</div>
+                <div class="step-text">Transcript Oluşturuluyor</div>
+            </div>
+            <div class="step" data-step="5">
+                <div class="step-number">5</div>
+                <div class="step-text">Summary Worker Çalışıyor</div>
+            </div>
+            <div class="step" data-step="6">
+                <div class="step-number">6</div>
+                <div class="step-text">Özet Oluşturuluyor</div>
+            </div>
+            <div class="step" data-step="7">
+                <div class="step-number">7</div>
+                <div class="step-text">İşlem Tamamlandı</div>
+            </div>
+        </div>
+        
+        <div class="log-section">
+            <div class="log-header">
+                <h3>İşlem Logları</h3>
+                <button id="clear-log-btn">Logları Temizle</button>
+            </div>
+            <div class="log-container" id="log-container"></div>
+        </div>
+
+        <div class="job-details" id="job-details" style="display: none;">
+            <h3>
+                İş Detayı 
+                <span id="job-id-display"></span>
+                <span class="job-status" id="job-status-display">-</span>
+                <button id="refresh-job-btn" class="refresh-btn">Yenile</button>
+            </h3>
+            <div class="job-data" id="job-data"></div>
+        </div>
+        
+        <div class="stats-section">
+            <h3>
+                Kuyruk İstatistikleri
+                <button id="refresh-stats-btn" class="refresh-btn">Yenile</button>
+            </h3>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h4>Transkript - Bekleyen</h4>
+                    <div class="stat-value" id="transcript-waiting">-</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Transkript - Aktif</h4>
+                    <div class="stat-value" id="transcript-active">-</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Transkript - Tamamlanan</h4>
+                    <div class="stat-value" id="transcript-completed">-</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Özet - Bekleyen</h4>
+                    <div class="stat-value" id="summary-waiting">-</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Özet - Aktif</h4>
+                    <div class="stat-value" id="summary-active">-</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Özet - Tamamlanan</h4>
+                    <div class="stat-value" id="summary-completed">-</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="status-bar">
+            <div id="status-message">Hazır</div>
+            <div id="timer">00:00:00</div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Element referansları
+            const videoUrlInput = document.getElementById('video-url');
+            const startBtn = document.getElementById('start-btn');
+            const clearLogBtn = document.getElementById('clear-log-btn');
+            const logContainer = document.getElementById('log-container');
+            const statusMessage = document.getElementById('status-message');
+            const timerElement = document.getElementById('timer');
+            const refreshStatsBtn = document.getElementById('refresh-stats-btn');
+            const refreshJobBtn = document.getElementById('refresh-job-btn');
+            const jobDetailsElement = document.getElementById('job-details');
+            const jobIdDisplay = document.getElementById('job-id-display');
+            const jobStatusDisplay = document.getElementById('job-status-display');
+            const jobDataElement = document.getElementById('job-data');
+            
+            // İstatistik elementleri
+            const transcriptWaiting = document.getElementById('transcript-waiting');
+            const transcriptActive = document.getElementById('transcript-active');
+            const transcriptCompleted = document.getElementById('transcript-completed');
+            const summaryWaiting = document.getElementById('summary-waiting');
+            const summaryActive = document.getElementById('summary-active');
+            const summaryCompleted = document.getElementById('summary-completed');
+            
+            // Adım indikatörleri
+            const steps = document.querySelectorAll('.step');
+            
+            // İzleme değişkenleri
+            let currentJobId = null;
+            let currentJobType = null;
+            let pollingInterval = null;
+            let summaryJobId = null;
+            
+            // Zamanlayıcı değişkenleri
+            let startTime = null;
+            let timerInterval = null;
+            
+            // URL'den video ID çıkarma
+            function extractVideoId(url) {
+                if (!url) return null;
+                
+                // Sadece ID ise (alfanumerik karakterler)
+                if (/^[a-zA-Z0-9_-]{11}$/.test(url)) {
+                    return url;
+                }
+                
+                // YouTube URL formatlarını kontrol et
+                const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+                const match = url.match(regExp);
+                
+                return (match && match[2].length === 11) ? match[2] : null;
+            }
+            
+            // Log yazma fonksiyonu
+            function addLog(message, type = 'info') {
+                const logEntry = document.createElement('div');
+                logEntry.className = `log-entry ${type}`;
+                
+                const timestamp = document.createElement('span');
+                timestamp.className = 'timestamp';
+                timestamp.textContent = new Date().toLocaleTimeString();
+                
+                const content = document.createElement('span');
+                content.className = 'content';
+                content.textContent = message;
+                
+                logEntry.appendChild(timestamp);
+                logEntry.appendChild(content);
+                
+                logContainer.appendChild(logEntry);
+                logContainer.scrollTop = logContainer.scrollHeight;
+            }
+            
+            // Adım güncelleme fonksiyonu
+            function updateStep(stepNumber, status) {
+                steps.forEach(step => {
+                    const stepNum = parseInt(step.dataset.step);
+                    
+                    if (stepNum < stepNumber) {
+                        step.className = 'step completed';
+                    } else if (stepNum === stepNumber) {
+                        step.className = 'step active';
+                    } else {
+                        step.className = 'step';
+                    }
+                });
+            }
+            
+            // İstatistikleri güncelleyen fonksiyon
+            async function updateQueueStats() {
+                try {
+                    addLog('Kuyruk istatistikleri güncelleniyor...', 'info');
+                    const response = await fetch('/api/test/queue-stats');
+                    if (!response.ok) {
+                        throw new Error(`İstatistik verileri alınamadı: ${response.status} ${response.statusText}`);
+                    }
+                    
+                    const data = await response.json();
+                    addLog('Kuyruk istatistikleri başarıyla alındı', 'success');
+                    
+                    if (data && data.bullMQ && data.bullMQ.stats) {
+                        const stats = data.bullMQ.stats;
+                        
+                        // Transcript stats
+                        if (stats.transcript) {
+                            transcriptWaiting.textContent = stats.transcript.waiting || '0';
+                            transcriptActive.textContent = stats.transcript.active || '0';
+                            transcriptCompleted.textContent = stats.transcript.completed || '0';
+                        }
+                        
+                        // Summary stats
+                        if (stats.summary) {
+                            summaryWaiting.textContent = stats.summary.waiting || '0';
+                            summaryActive.textContent = stats.summary.active || '0';
+                            summaryCompleted.textContent = stats.summary.completed || '0';
+                        }
+                    }
+                } catch (error) {
+                    addLog(`İstatistik güncelleme hatası: ${error.message}`, 'error');
+                    console.error('İstatistik güncelleme hatası:', error);
+                }
+            }
+            
+            // İşin durumunu kontrol eden fonksiyon
+            async function checkJobStatus(jobId, jobType) {
+                try {
+                    addLog(`İş durumu kontrol ediliyor: ${jobId}`, 'info');
+                    const response = await fetch(`/api/test/queue-jobs?type=${jobType}`);
+                    if (!response.ok) {
+                        throw new Error(`İş durumu alınamadı: ${response.status} ${response.statusText}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // İş detaylarını göster
+                    jobDetailsElement.style.display = 'block';
+                    jobIdDisplay.textContent = jobId;
+                    
+                    // Tüm iş türlerinde (waiting, active, completed, failed) jobId ile eşleşen işi ara
+                    let foundJob = null;
+                    let foundState = null;
+                    
+                    ['waiting', 'active', 'completed', 'failed'].forEach(state => {
+                        if (data.queueDetails && data.queueDetails[state] && data.queueDetails[state].jobs) {
+                            const job = data.queueDetails[state].jobs.find(j => j.id === jobId);
+                            if (job) {
+                                foundJob = job;
+                                foundState = state;
+                            }
+                        }
+                    });
+                    
+                    if (foundJob) {
+                        addLog(`İş durumu: ${foundState}`, foundState === 'failed' ? 'error' : foundState === 'completed' ? 'success' : 'info');
+                        
+                        // İş durumunu göster
+                        jobStatusDisplay.textContent = foundState;
+                        jobStatusDisplay.className = `job-status ${foundState}`;
+                        
+                        // İş verilerini göster
+                        jobDataElement.textContent = JSON.stringify(foundJob, null, 2);
+                        
+                        // İş durumuna göre adımları güncelle
+                        if (jobType === 'transcript') {
+                            switch (foundState) {
+                                case 'waiting':
+                                    updateStep(2, 'active');
+                                    break;
+                                case 'active':
+                                    updateStep(3, 'active');
+                                    addLog('Transcript Worker işlemi yürütüyor', 'info');
+                                    updateStep(4, 'active');
+                                    addLog('Transcript oluşturuluyor...', 'info');
+                                    break;
+                                case 'completed':
+                                    updateStep(2, 'completed');
+                                    updateStep(3, 'completed');
+                                    updateStep(4, 'completed');
+                                    addLog('Transcript işlemi tamamlandı', 'success');
+                                    
+                                    // Eğer summary işlemi de isteniyorsa, adım 5'e geçilir
+                                    if (currentJobType === 'summary') {
+                                        updateStep(5, 'active');
+                                        addLog('Özet işlemi için transcript işleminin tamamlanması bekleniyor...', 'info');
+                                        
+                                        // Özet işlemini başlat
+                                        startSummaryJob(foundJob.data.videoId);
+                                    } else {
+                                        updateStep(7, 'active');
+                                        addLog('Tüm işlemler başarıyla tamamlandı', 'success');
+                                        statusMessage.textContent = 'İşlem tamamlandı';
+                                        stopPolling();
+                                    }
+                                    break;
+                                case 'failed':
+                                    addLog(`Transcript işlemi başarısız oldu: ${foundJob.failedReason || 'Bilinmeyen hata'}`, 'error');
+                                    statusMessage.textContent = 'İşlem başarısız';
+                                    stopPolling();
+                                    break;
+                            }
+                        } else if (jobType === 'summary') {
+                            switch (foundState) {
+                                case 'waiting':
+                                    updateStep(5, 'active');
+                                    break;
+                                case 'active':
+                                    updateStep(5, 'completed');
+                                    updateStep(6, 'active');
+                                    addLog('Summary Worker işlemi yürütüyor', 'info');
+                                    addLog('Özet oluşturuluyor...', 'info');
+                                    break;
+                                case 'completed':
+                                    updateStep(5, 'completed');
+                                    updateStep(6, 'completed');
+                                    updateStep(7, 'active');
+                                    addLog('Özet işlemi tamamlandı', 'success');
+                                    addLog('Tüm işlemler başarıyla tamamlandı', 'success');
+                                    statusMessage.textContent = 'İşlem tamamlandı';
+                                    stopPolling();
+                                    break;
+                                case 'failed':
+                                    addLog(`Özet işlemi başarısız oldu: ${foundJob.failedReason || 'Bilinmeyen hata'}`, 'error');
+                                    statusMessage.textContent = 'İşlem başarısız';
+                                    stopPolling();
+                                    break;
+                            }
+                        }
+                    } else {
+                        addLog(`İş bulunamadı: ${jobId}`, 'warning');
+                        jobStatusDisplay.textContent = 'bulunamadı';
+                        jobStatusDisplay.className = 'job-status';
+                        jobDataElement.textContent = 'İş bulunamadı';
+                    }
+                    
+                } catch (error) {
+                    addLog(`İş durumu kontrol hatası: ${error.message}`, 'error');
+                    console.error('İş durumu kontrol hatası:', error);
+                }
+            }
+            
+            // Özet işlemini başlatan fonksiyon
+            async function startSummaryJob(videoId) {
+                try {
+                    addLog(`Özet işlemi başlatılıyor: ${videoId}`, 'info');
+                    const response = await fetch(`/api/test/add-job?type=summary&videoId=${videoId}`);
+                    if (!response.ok) {
+                        throw new Error(`Özet işlemi başlatılamadı: ${response.status} ${response.statusText}`);
+                    }
+                    
+                    const data = await response.json();
+                    summaryJobId = data.jobId;
+                    
+                    addLog(`Özet işlemi başlatıldı. Job ID: ${summaryJobId}`, 'success');
+                    
+                    // İş durumunu izlemeye başla
+                    currentJobId = summaryJobId;
+                    currentJobType = 'summary';
+                    
+                } catch (error) {
+                    addLog(`Özet işlemi başlatma hatası: ${error.message}`, 'error');
+                    console.error('Özet işlemi başlatma hatası:', error);
+                }
+            }
+            
+            // İş durumunu periyodik olarak kontrol etmeyi başlatan fonksiyon
+            function startPolling(jobId, jobType) {
+                // Önceki polling işlemini durdur
+                stopPolling();
+                
+                // Yeni polling işlemini başlat
+                pollingInterval = setInterval(() => {
+                    checkJobStatus(jobId, jobType);
+                    updateQueueStats();
+                }, 3000); // 3 saniyede bir kontrol et
+            }
+            
+            // Polling işlemini durduran fonksiyon
+            function stopPolling() {
+                if (pollingInterval) {
+                    clearInterval(pollingInterval);
+                    pollingInterval = null;
+                }
+            }
+            
+            // Zamanlayıcı fonksiyonu
+            function startTimer() {
+                startTime = new Date();
+                
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                }
+                
+                timerInterval = setInterval(() => {
+                    const elapsedTime = new Date() - startTime;
+                    const hours = Math.floor(elapsedTime / 3600000).toString().padStart(2, '0');
+                    const minutes = Math.floor((elapsedTime % 3600000) / 60000).toString().padStart(2, '0');
+                    const seconds = Math.floor((elapsedTime % 60000) / 1000).toString().padStart(2, '0');
+                    
+                    timerElement.textContent = `${hours}:${minutes}:${seconds}`;
+                }, 1000);
+            }
+            
+            // İşlemleri sıfırlayan fonksiyon
+            function resetProcess() {
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                }
+                
+                stopPolling();
+                
+                timerElement.textContent = '00:00:00';
+                updateStep(0, '');
+                statusMessage.textContent = 'Hazır';
+                
+                // İş detaylarını gizle
+                jobDetailsElement.style.display = 'none';
+                jobIdDisplay.textContent = '';
+                jobStatusDisplay.textContent = '-';
+                jobStatusDisplay.className = 'job-status';
+                jobDataElement.textContent = '';
+                
+                // Global değişkenleri sıfırla
+                currentJobId = null;
+                currentJobType = null;
+                summaryJobId = null;
+            }
+            
+            // İşlem başlat
+            async function startProcess() {
+                const videoUrl = videoUrlInput.value.trim();
+                if (!videoUrl) {
+                    addLog('Lütfen geçerli bir video URL\'si veya ID\'si girin', 'error');
+                    return;
+                }
+                
+                const videoId = extractVideoId(videoUrl);
+                if (!videoId) {
+                    addLog('Geçerli bir YouTube video ID\'si bulunamadı', 'error');
+                    return;
+                }
+                
+                const processType = document.querySelector('input[name="process-type"]:checked').value;
+                
+                // UI'yi güncelle
+                startBtn.disabled = true;
+                resetProcess();
+                clearLog();
+                startTimer();
+                
+                addLog(`İşlem başlatılıyor: Video ID = ${videoId}`, 'info');
+                statusMessage.textContent = 'İşlem devam ediyor...';
+                
+                // Adım 1: Video bilgisi alınıyor
+                updateStep(1, 'active');
+                addLog('Video bilgisi alınıyor...', 'info');
+                
+                try {
+                    // Simüle ediyoruz - gerçekte bu fonksiyon YouTube API'si kullanarak video bilgilerini alabilir
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    addLog(`Video ID: ${videoId} bulundu`, 'success');
+                    addLog('Dil seçimi yapıldı: "tr" (Türkçe)', 'info');
+                    
+                    updateStep(1, 'completed');
+                    
+                    // Adım 2: Queue'ya ekleniyor
+                    updateStep(2, 'active');
+                    addLog('İşlem kuyruğa ekleniyor...', 'info');
+                    
+                    // Gerçek API isteği
+                    const response = await fetch(`/api/test/add-job?type=transcript&videoId=${videoId}`);
+                    if (!response.ok) {
+                        throw new Error(`API isteği başarısız oldu: ${response.status} ${response.statusText}`);
+                    }
+                    
+                    const data = await response.json();
+                    const jobId = data.jobId;
+                    
+                    addLog(`İşlem kuyruğa eklendi. Job ID: ${jobId}`, 'success');
+                    
+                    // Job ID ve tipini kaydet
+                    currentJobId = jobId;
+                    currentJobType = processType;
+                    
+                    // İş durumunu periyodik olarak kontrol etmeye başla
+                    startPolling(jobId, 'transcript');
+                    
+                    // İstatistikleri güncelle
+                    updateQueueStats();
+                    
+                } catch (error) {
+                    addLog(`Hata: ${error.message}`, 'error');
+                    statusMessage.textContent = 'İşlem başarısız';
+                    startBtn.disabled = false;
+                }
+            }
+            
+            // Logları temizleme
+            function clearLog() {
+                logContainer.innerHTML = '';
+            }
+            
+            // Olay dinleyicileri
+            startBtn.addEventListener('click', startProcess);
+            clearLogBtn.addEventListener('click', clearLog);
+            
+            refreshStatsBtn.addEventListener('click', updateQueueStats);
+            refreshJobBtn.addEventListener('click', () => {
+                if (currentJobId && currentJobType) {
+                    checkJobStatus(currentJobId, currentJobType);
+                }
+            });
+            
+            // Başlangıçta istatistikleri yükle
+            updateQueueStats();
+        });
+    </script>
+</body>
+</html> 

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veciz AI - Queue Statistics</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f7f9fc;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+        }
+        .card {
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            margin-bottom: 20px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        .card-header {
+            font-weight: 600;
+            background-color: #f1f5f9;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        .stats-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            display: block;
+            text-align: center;
+            line-height: 1;
+        }
+        .stats-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+            text-align: center;
+            display: block;
+            margin-top: 0.5rem;
+        }
+        .refresh-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        #loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .queue-transcript {
+            color: #0d6efd;
+        }
+        .queue-summary {
+            color: #198754;
+        }
+        .waiting {
+            color: #ffc107;
+        }
+        .active {
+            color: #0d6efd;
+        }
+        .completed {
+            color: #198754;
+        }
+        .failed {
+            color: #dc3545;
+        }
+        .delayed {
+            color: #6f42c1;
+        }
+        .timestamp {
+            font-size: 0.8rem;
+            color: #6c757d;
+            text-align: right;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="mb-0">Veciz AI - Queue Statistics</h1>
+            <div class="refresh-container">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="autoRefresh" checked>
+                    <label class="form-check-label" for="autoRefresh">Auto-refresh</label>
+                </div>
+                <select id="refreshInterval" class="form-select form-select-sm" style="width: 120px;">
+                    <option value="5000">5 seconds</option>
+                    <option value="10000" selected>10 seconds</option>
+                    <option value="30000">30 seconds</option>
+                    <option value="60000">1 minute</option>
+                </select>
+                <button id="refreshBtn" class="btn btn-sm btn-outline-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"/>
+                        <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466"/>
+                    </svg>
+                    Refresh
+                </button>
+            </div>
+        </div>
+
+        <div id="stats-container">
+            <!-- Queue stats will be rendered here -->
+        </div>
+
+        <div class="timestamp">
+            Last Updated: <span id="lastUpdated">-</span>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+    <script>
+        let refreshIntervalId = null;
+        
+        function formatTimestamp(timestamp) {
+            return moment(timestamp).format('DD.MM.YYYY HH:mm:ss');
+        }
+
+        function renderQueueStats(data) {
+            const container = document.getElementById('stats-container');
+            container.innerHTML = '';
+            
+            // Create row for each queue
+            const row = document.createElement('div');
+            row.className = 'row mb-4';
+            
+            // Sort queue names to ensure consistent order
+            const queueNames = Object.keys(data).sort();
+            
+            queueNames.forEach(queueName => {
+                const queueStats = data[queueName];
+                const queueColumn = document.createElement('div');
+                queueColumn.className = 'col-md-6 mb-4';
+                
+                const queueCard = document.createElement('div');
+                queueCard.className = 'card h-100';
+                
+                const cardHeader = document.createElement('div');
+                cardHeader.className = 'card-header';
+                cardHeader.innerHTML = `<h5 class="mb-0 queue-${queueName}">${queueName.charAt(0).toUpperCase() + queueName.slice(1)} Queue</h5>`;
+                
+                const cardBody = document.createElement('div');
+                cardBody.className = 'card-body';
+                
+                // Create inner row for job states
+                const statsRow = document.createElement('div');
+                statsRow.className = 'row';
+                
+                // Add stats for each job state
+                const states = ['waiting', 'active', 'completed', 'failed', 'delayed'];
+                states.forEach(state => {
+                    if (queueStats[state] !== undefined) {
+                        const stateColumn = document.createElement('div');
+                        stateColumn.className = 'col-4 mb-3';
+                        
+                        const stateValue = document.createElement('span');
+                        stateValue.className = `stats-value ${state}`;
+                        stateValue.textContent = queueStats[state];
+                        
+                        const stateLabel = document.createElement('span');
+                        stateLabel.className = 'stats-label';
+                        stateLabel.textContent = state.charAt(0).toUpperCase() + state.slice(1);
+                        
+                        stateColumn.appendChild(stateValue);
+                        stateColumn.appendChild(stateLabel);
+                        statsRow.appendChild(stateColumn);
+                    }
+                });
+                
+                cardBody.appendChild(statsRow);
+                queueCard.appendChild(cardHeader);
+                queueCard.appendChild(cardBody);
+                queueColumn.appendChild(queueCard);
+                row.appendChild(queueColumn);
+            });
+            
+            container.appendChild(row);
+        }
+
+        async function fetchQueueStats() {
+            document.getElementById('loading').style.display = 'flex';
+            
+            try {
+                const response = await fetch('/api/test/queue-stats');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                renderQueueStats(data);
+                
+                const now = new Date();
+                document.getElementById('lastUpdated').textContent = formatTimestamp(now);
+                
+            } catch (error) {
+                console.error('Error fetching queue stats:', error);
+                
+                // Show error alert
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-danger';
+                alertDiv.textContent = `Error fetching queue stats: ${error.message}`;
+                
+                const container = document.querySelector('.container');
+                container.insertBefore(alertDiv, container.firstChild);
+                
+                // Remove the alert after 5 seconds
+                setTimeout(() => {
+                    alertDiv.remove();
+                }, 5000);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        function setupAutoRefresh() {
+            const autoRefreshCheckbox = document.getElementById('autoRefresh');
+            const refreshIntervalSelect = document.getElementById('refreshInterval');
+            
+            function startAutoRefresh() {
+                if (refreshIntervalId) {
+                    clearInterval(refreshIntervalId);
+                }
+                
+                if (autoRefreshCheckbox.checked) {
+                    const interval = parseInt(refreshIntervalSelect.value);
+                    refreshIntervalId = setInterval(fetchQueueStats, interval);
+                }
+            }
+            
+            autoRefreshCheckbox.addEventListener('change', startAutoRefresh);
+            refreshIntervalSelect.addEventListener('change', startAutoRefresh);
+            
+            // Initial setup
+            startAutoRefresh();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initial data fetch
+            fetchQueueStats();
+            
+            // Setup refresh button
+            document.getElementById('refreshBtn').addEventListener('click', fetchQueueStats);
+            
+            // Setup auto-refresh
+            setupAutoRefresh();
+        });
+    </script>
+</body>
+</html> 
