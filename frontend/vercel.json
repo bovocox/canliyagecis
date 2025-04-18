@@ -1,8 +1,27 @@
 {
   "rewrites": [
     {
+      "source": "/auth/callback",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/auth/v1/callback",
+      "destination": "/index.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
     }
   ]
 } 
