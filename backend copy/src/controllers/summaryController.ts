@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Summary, SummaryResponse } from '../types/summary';
+import { Summary, SummaryResponse, SummaryStatus } from '../types/summary';
 import SummaryService from '../services/summaryService';
 import queueService from '../services/queueService';
 import DatabaseService from '../services/databaseService';

@@ -723,7 +723,12 @@ const formattedSummary = computed(() => {
 const formattedSummaryPreview = computed(() => {
   if (!videoData.value?.summary) return '';
   const maxLength = 650;
-  const summaryText = videoData.value.summary.trim();
+  const summaryText = videoData.value.summary
+    .trim()
+    .replace(/\n\s*\n/g, ' ') // Replace multiple newlines with a single space
+    .replace(/\n/g, ' ') // Replace single newlines with a space
+    .replace(/\s+/g, ' '); // Replace multiple spaces with a single space
+  
   const truncatedText = summaryText.length > maxLength 
     ? summaryText.substring(0, maxLength).trim() + '...' 
     : summaryText;
@@ -835,14 +840,6 @@ const formattedSummaryPreview = computed(() => {
                              }
                            }"/>
                       <div class="absolute inset-0 bg-black bg-opacity-40 group-hover:bg-opacity-30 transition-opacity"></div>
-                      <div class="absolute bottom-2 left-2 right-2">
-                        <p class="text-white text-sm line-clamp-2 font-medium">
-                          {{ summary.videos?.title || 'Video başlığı yükleniyor...' }}
-                        </p>
-                        <p class="text-white/80 text-xs mt-1">
-                          {{ summary.videos?.channel_title || 'Kanal yükleniyor...' }}
-                        </p>
-                      </div>
                     </div>
                   </div>
                 </template>

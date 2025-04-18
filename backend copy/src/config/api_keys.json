@@ -49,11 +49,11 @@
       {
         "key": "AIzaSyBF8q0a7Fk6JJ8axh-C6bdfu-V-tDq_lvM",
         "is_active": true,
-        "error_count": 4,
-        "last_error": "UNKNOWN_ERROR",
+        "error_count": 1,
+        "last_error": "SAFETY_ERROR",
         "rate_limit_minute": 60,
-        "last_checked": "2025-04-18T12:37:15.032Z",
-        "quota_used": 31
+        "last_checked": "2025-04-16T05:29:52.261Z",
+        "quota_used": 23
       },
       {
         "key": "AIzaSyBUBTxF4LfYjPbwfU1SKeNALkXtMjnswig",
@@ -146,7 +146,7 @@
         "quota_used": 24
       }
     ],
-    "current_index": 6,
+    "current_index": 5,
     "quota_reset_time": "00:00",
     "rate_limit_minute": 60,
     "rate_limit_hour": 3600
