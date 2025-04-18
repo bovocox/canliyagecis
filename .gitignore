@@ -49,3 +49,7 @@ temp/
 .chrome/
 .vite/
 .qodo
+
+# Development environment files
+frontend/.env.development
+backend/.env.development
