@@ -1,16 +1,16 @@
 {
-  "rewrites": [
+  "routes": [
     {
-      "source": "/auth/callback",
-      "destination": "/index.html"
+      "src": "/auth/callback",
+      "dest": "/"
     },
     {
-      "source": "/auth/v1/callback",
-      "destination": "/index.html"
+      "src": "/auth/v1/callback",
+      "dest": "/"
     },
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "src": "/(.*)",
+      "dest": "/"
     }
   ],
   "headers": [
