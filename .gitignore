@@ -53,3 +53,11 @@ temp/
 # Development environment files
 frontend/.env.development
 backend/.env.development
+
+# Notlarim.md
+notlarim.md
+
+# API Keys
+**/api_keys.json
+backend/src/config/api_keys.json
+backend/dist/config/api_keys.json
