@@ -118,3 +118,10 @@ Gemini API kullanarak asıl özet oluşturma işini yapıyor
 Yani:
 handleTranscriptCompletion -> "Özet oluşturma işini başlat"
 processSummary -> "Özeti gerçekten oluştur"
+
+KOMUTLAR
+heroku logs --tail
+
+supabasee baglan
+
+ curl -X GET 'https://kucdcohxeccihjggdbub.supabase.co/rest/v1/' -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt1Y2Rjb2h4ZWNjaWhqZ2dkYnViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzk2MjU4MzYsImV4cCI6MjA1NTIwMTgzNn0.foSrvdeAMKtegYMDGRmGLG4XTGSqgBGMzXeU4dcPvNg" | jq
