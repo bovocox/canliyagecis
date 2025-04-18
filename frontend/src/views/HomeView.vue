@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, isRef, type Ref, onBeforeUnmount } from 'vue'
 import { useAuthStore } from '../stores/auth'
-import { useLanguageStore } from '../stores/languageStore'
+import { useLanguageStore } from '@/stores/languageStore'
 import { getVideoId } from '../utils/youtube'
 import apiService from '../services/apiService'
 import pollingService from '@/services/pollingService';
 import { FormatService } from '@/services/formatService';
-import socketService from '@/services/socketService';
 import type { AuthUser } from '@/types/auth'
 import type { TranscriptItem, VideoData, VideoSummary } from '@/types/video'
 import { VideoProcessingService } from '@/services/videoProcessingService'
@@ -19,6 +18,7 @@ import HowItWorksSection from '../components/home/HowItWorksSection.vue'
 import DetailModal from '../components/modals/DetailModal.vue'
 import TranscriptModal from '../components/modals/TranscriptModal.vue'
 import LanguageModal from '../components/modals/LanguageModal.vue'
+import { debounce } from 'lodash-es'
 
 const languageStore = useLanguageStore()
 const authStore = useAuthStore()
@@ -98,6 +98,12 @@ const videoProcessingService = new VideoProcessingService(
 // Script section: add a ref for DEV mode
 const isDev = ref(import.meta.env.DEV);
 
+// Değişken temizleme fonksiyonunu saklamak için 
+let cleanupLanguageListener: (() => void) | null = null;
+
+// First, add the showDebug ref that's missing
+const showDebug = ref(false);
+
 // Component oluşturulduğunda
 onMounted(async () => {
   console.log('🔄 Component mounted');
@@ -105,21 +111,51 @@ onMounted(async () => {
   // Click listener'ı ekle
   document.addEventListener('click', closeMenu);
   
-  // Dil değişikliği listener'ı ekle
-  languageStore.onLanguageChange((newLang) => {
+  // Spinner güvenlik zamanlayıcısı (2 dakika sonra spinnerlar hala dönüyorsa kapat)
+  const spinnerSafetyTimeout = setTimeout(() => {
+    if (videoData.value?.id && (
+      videoStore.getLoadingState('summary') || 
+      videoStore.getLoadingState('transcript') || 
+      videoStore.getLoadingState('processing')
+    )) {
+      console.log('⚠️ Safety timeout: Force closing spinners after 2 minutes');
+      
+      // Tüm spinner ve loading durumlarını kapat
+      videoStore.setLoadingState('transcript', false);
+      videoStore.setLoadingState('summary', false);
+      videoStore.setLoadingState('processing', false);
+      videoStore.toggleSpinner('transcript', false);
+      videoStore.toggleSpinner('summary', false);
+      videoStore.toggleSpinner('processing', false);
+      
+      // Polling service durumlarını sıfırla
+      pollingService.isLoadingTranscript.value = false;
+      pollingService.isLoadingSummary.value = false;
+      pollingService.isPollingActiveSummary.value = false;
+    }
+  }, 120000); // 2 dakika
+  
+  // Dil değişikliği listener'ı ekle - debounce ile gecikme ekleniyor
+  const handleLanguageChange = debounce((newLang: string) => {
     console.log(`🌍 Dil değişikliği algılandı: ${newLang}`);
     
     // Eğer video zaten işlenmiş ve özet varsa, o dildeki özeti getir
     if (videoData.value?.id) {
       console.log('🔄 Aynı video için farklı dilde özet isteniyor...');
+      
       // Mevcut videoyu yeni dilde işle, video ID'yi koruyarak
-      videoProcessingService.handleVideoProcess(videoData.value.id, newLang)
-        .then(() => {
-          console.log('✅ Dil değişimi sonrası video işleme başarılı!');
-        })
-        .catch(err => {
-          console.error('❌ Dil değişimi sonrası video işleme hatası:', err);
-        });
+      // Bu işlem zaten çalışıyorsa tekrar çağırma (throttling mekanizması bunu kontrol edecek)
+      if (!videoStore.loadingStates.processing) {
+        videoProcessingService.handleVideoProcess(videoData.value.id, newLang)
+          .then(() => {
+            console.log('✅ Dil değişimi sonrası video işleme başarılı!');
+          })
+          .catch(err => {
+            console.error('❌ Dil değişimi sonrası video işleme hatası:', err);
+          });
+      } else {
+        console.log('⚠️ Video işleme zaten devam ediyor, yeni istek göndermeden mevcut isteğin tamamlanması bekleniyor');
+      }
     }
     
     // Dil değişikliği sonrası özetleri yeniden yükle
@@ -129,7 +165,11 @@ onMounted(async () => {
     
     // Alt bileşenleri yeniden render etmek için forceRender'ı artır
     forceRender.value++;
-  });
+  }, 500); // 500ms gecikme ile
+
+  // Temizleme fonksiyonunu sakla
+  cleanupLanguageListener = languageStore.onLanguageChange(handleLanguageChange);
+  console.log('🌐 Dil değişikliği dinleyicisi eklendi');
   
   // Default video ID'sini ayarla
   const defaultVideoId = 'lFZvLeMbJ_U';
@@ -155,9 +195,111 @@ onUnmounted(() => {
   
   // Polling'i durdur
   if (videoData.value?.id) {
+    console.log(`🛑 Stopping all polling for video ${videoData.value.id} during component unmount`);
     pollingService.stopAllPolling(videoData.value.id);
   }
+  
+  // Tüm aktif polling'leri durdur (video ID'den bağımsız)
+  console.log(`🚨 Stopping all active polling processes during component unmount`);
+  pollingService.stopAllActivePolling();
+  
+  // Dil değişikliği dinleyicisini temizle
+  if (cleanupLanguageListener) {
+    cleanupLanguageListener();
+    console.log('🌐 Dil değişikliği dinleyicisi temizlendi');
+  }
+  
+  // Tarayıcı konsoluna acil durumda kullanılabilecek fonksiyonu ekle
+  if (typeof window !== 'undefined' && isDev.value) {
+    console.log('💡 Acil durum fonksiyonu tarayıcı konsoluna eklendi:');
+    console.log('   window.emergencyStopPolling() kullanarak tüm polling işlemlerini durdurabilirsiniz');
+    (window as any).emergencyStopPolling = emergencyStopAllPolling;
+  }
+  
+  console.log('🧹 Component unmount temizliği tamamlandı');
 });
+
+// Add beforeUnmount hook as an extra safety measure
+onBeforeUnmount(() => {
+  console.log('🔄 Component before unmount - performing final cleanup');
+  
+  // Force stop all polling one more time
+  if (videoData.value?.id) {
+    console.log(`🛑 Final stop of all polling for video ${videoData.value.id} before unmount`);
+    pollingService.stopAllPolling(videoData.value.id);
+  }
+  
+  // Tüm aktif polling'leri son bir kez durdur
+  console.log('🧨 Emergency stopping all active polling before unmount');
+  pollingService.stopAllActivePolling();
+  
+  // Polling service'in acil durum fonksiyonunu çağır
+  if (typeof pollingService.emergencyStopAllPolling === 'function') {
+    console.log('☢️ Using nuclear option to clear ALL intervals');
+    pollingService.emergencyStopAllPolling();
+  }
+  
+  console.log('🧹 Final component cleanup completed');
+});
+
+// Emergency stop function for debug panel
+const emergencyStopAllPolling = () => {
+  console.log('🔥 EMERGENCY: STOPPING ALL POLLING PROCESSES');
+  
+  // Normal polling durdurma
+  if (videoData.value?.id) {
+    pollingService.stopAllPolling(videoData.value.id);
+  }
+  
+  // Tüm aktif polling'leri durdur
+  pollingService.stopAllActivePolling();
+  
+  // Nuclear option: tüm interval ve timeout'ları temizle
+  if (typeof pollingService.emergencyStopAllPolling === 'function') {
+    pollingService.emergencyStopAllPolling();
+  } else {
+    // Fallback: manuel olarak interval'ları temizle
+    console.log('⚠️ emergencyStopAllPolling method not found, using manual cleanup');
+    for (let i = 0; i < 10000; i++) {
+      try {
+        window.clearInterval(i);
+        window.clearTimeout(i);
+      } catch (e) {
+        // Hataları görmezden gel
+      }
+    }
+  }
+  
+  // Loading ve spinner durumlarını temizle
+  videoStore.clearProcessingStatus();
+  
+  console.log('✅ Emergency stop completed: All polling stopped and intervals cleared');
+  
+  return "All polling processes stopped successfully";
+};
+
+// Component unmount olduğunda interval'ları temizle
+const clearAllIntervals = () => {
+  console.log('🧹 Clearing all intervals');
+  // Implement as needed for additional interval clearing
+};
+
+// Yeniden deneme işlevi
+const retryProcessing = () => {
+  console.log('🔄 Retrying video processing');
+  if (videoData.value?.id) {
+    // Clear any previous errors
+    error.value = '';
+    
+    // Reset flags
+    if (videoData.value.id) {
+      pollingService.stopAllPolling(videoData.value.id);
+    }
+    
+    // Process with current language
+    videoProcessingService.processVideoWithLanguage(languageStore.language);
+  }
+};
 
 const handleSearch = async () => {
   if (!searchQuery.value) return;
@@ -208,14 +350,6 @@ interface SummaryStatus {
   task_id?: string;
   error?: string;
 }
-
-// Temizleme fonksiyonu sadece interval'ları temizleyecek
-const clearAllIntervals = () => {
-  console.log('🧹 Clearing all intervals');
-  if (videoData.value?.id) {
-    pollingService.stopAllPolling(videoData.value.id);
-  }
-};
 
 const submitFeedback = () => {
   if (!selectedSummary.value) return
@@ -402,20 +536,6 @@ const loadAvailableSummaries = async () => {
   } catch (err) {
     console.error('❌ Error loading summaries:', err);
     error.value = err instanceof Error ? err.message : 'Failed to load summaries';
-  }
-};
-
-// Component unmount olduğunda interval'ları temizle
-onBeforeUnmount(() => {
-  console.log('🏠 HomeView component before unmount');
-  clearAllIntervals();
-});
-
-// Yeniden deneme işlevi
-const retryProcessing = () => {
-  console.log('🔄 Retrying video processing');
-  if (videoData.value?.id) {
-    processVideoWithLanguage(languageStore.language);
   }
 };
 
@@ -830,6 +950,43 @@ const formattedSummaryPreview = computed(() => {
               <path d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
+        </div>
+      </div>
+
+      <!-- DEV MODE DEBUGGING CONTROLS - only shown in development -->
+      <div v-if="isDev" class="bg-amber-50 border border-amber-200 rounded-md p-4 mb-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-amber-700 font-semibold text-sm">Development Mode Debug Controls</h3>
+          <button @click="showDebug = !showDebug" class="text-amber-700 hover:text-amber-900">
+            {{ showDebug ? 'Hide Controls' : 'Show Controls' }}
+          </button>
+        </div>
+        <div v-if="showDebug" class="mt-3 space-y-3">
+          <p class="text-amber-600 text-xs">These controls are only available in development mode</p>
+          <div class="flex flex-wrap gap-2">
+            <button 
+              @click="emergencyStopAllPolling" 
+              class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 text-sm rounded"
+            >
+              🛑 Emergency Stop All Polling
+            </button>
+            <button 
+              @click="pollingService.stopAllPolling(videoData?.id)" 
+              class="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 text-sm rounded"
+              v-if="videoData?.id"
+            >
+              Stop Polling for {{ videoData?.id }}
+            </button>
+            <button 
+              @click="clearAllIntervals" 
+              class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 text-sm rounded"
+            >
+              Clear All Intervals
+            </button>
+          </div>
+          <div class="text-xs text-amber-600 mt-2">
+            <p>Current polling status: {{ pollingService.isLoadingTranscript.value || pollingService.isLoadingSummary.value ? 'ACTIVE' : 'INACTIVE' }}</p>
+          </div>
         </div>
       </div>
     </div>

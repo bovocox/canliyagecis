@@ -17,7 +17,11 @@ export interface VideoData {
   summary: string;
   summaryPreview: string;
   formatted_text: string;
-  loading: boolean;
+  loading: boolean | {
+    transcript?: boolean;
+    summary?: boolean;
+    [key: string]: boolean | undefined;
+  };
   error: string | null;
 }
 

@@ -4,10 +4,15 @@ import { watch, computed, ref, onMounted, onUnmounted } from 'vue'
 import { useLanguageStore } from './stores/languageStore'
 import { useAuthStore } from './stores/auth'
 import { useRouter } from 'vue-router'
+import { useVideoStore } from './stores/videoStore'
+import { VideoProcessingService } from './services/videoProcessingService'
 
 const languageStore = useLanguageStore()
 const authStore = useAuthStore()
 const router = useRouter()
+
+// For spinner safety checks
+let spinnerSafetyInterval: number | null = null;
 
 // Check if user is authenticated
 const isAuthenticated = computed(() => !!authStore.user)
@@ -75,10 +80,73 @@ onMounted(() => {
       languageStore.setLanguage(savedLocale, false);
     }
   });
+  
+  // Set up a global safety check for stuck spinners
+  const SPINNER_CHECK_INTERVAL = 60 * 1000; // Check every minute
+  const MAX_SPINNER_TIME = 5 * 60 * 1000; // 5 minutes max spinner time
+  const lastSpinnerStartTimes = new Map<string, number>();
+  
+  spinnerSafetyInterval = window.setInterval(() => {
+    const videoStore = useVideoStore();
+    
+    // If any spinner is active
+    if (videoStore.shouldShowSpinner) {
+      console.log('🔍 [Global Safety Check] Checking active spinners...');
+      
+      const currentTime = Date.now();
+      const currentVideoId = videoStore.currentProcessingVideoId;
+      
+      // Record spinner start time if it's a new spinner
+      if (currentVideoId && !lastSpinnerStartTimes.has(currentVideoId)) {
+        lastSpinnerStartTimes.set(currentVideoId, currentTime);
+        console.log(`🔄 [Global Safety Check] New spinner detected for video ${currentVideoId}`);
+      }
+      
+      // Check all recorded spinners for timeout
+      lastSpinnerStartTimes.forEach((startTime, videoId) => {
+        const spinnerDuration = currentTime - startTime;
+        console.log(`⏱️ [Global Safety Check] Spinner for ${videoId} has been active for ${Math.round(spinnerDuration/1000)}s`);
+        
+        // If spinner has been active too long
+        if (spinnerDuration > MAX_SPINNER_TIME) {
+          console.warn(`⚠️ [Global Safety Check] Spinner for ${videoId} has exceeded max time (${MAX_SPINNER_TIME/1000}s), force closing...`);
+          
+          try {
+            // Create instance and force close the spinner
+            const videoProcessingService = new VideoProcessingService(
+              ref(videoStore.videoData), 
+              ref(''), 
+              ref(videoStore.processingStatus)
+            );
+            videoProcessingService.forceCloseSpinners(videoId);
+            
+            // Remove from tracked spinners
+            lastSpinnerStartTimes.delete(videoId);
+            
+            console.log(`✅ [Global Safety Check] Successfully closed stuck spinner for ${videoId}`);
+          } catch (error) {
+            console.error(`❌ [Global Safety Check] Error closing spinner:`, error);
+          }
+        }
+      });
+      
+      // Clean up spinners that are no longer active
+      if (!videoStore.shouldShowSpinner) {
+        lastSpinnerStartTimes.clear();
+        console.log('🧹 [Global Safety Check] Cleared spinner tracking, no active spinners');
+      }
+    }
+  }, SPINNER_CHECK_INTERVAL);
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', closeMenu)
+  
+  // Clear the spinner safety interval
+  if (spinnerSafetyInterval !== null) {
+    clearInterval(spinnerSafetyInterval);
+    spinnerSafetyInterval = null;
+  }
 })
 </script>
 

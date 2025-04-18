@@ -1,0 +1,698 @@
+import apiService from './apiService';
+import { ref } from 'vue';
+import type { TranscriptResponse, SummaryResponse, ProcessingStatus } from './apiService';
+
+export class PollingService {
+  private transcriptIntervals: Map<string, number> = new Map();
+  private summaryIntervals: Map<string, number> = new Map();
+  // New map to track active polling states for all videoIds
+  private isPollingActive: Record<string, {transcript: boolean, summary: boolean}> = {};
+  private readonly TRANSCRIPT_INTERVAL = 1000; // 1 second
+  private readonly SUMMARY_INTERVAL = 1000; // 1 second
+  private readonly MAX_TRANSCRIPT_ATTEMPTS = 180; // 3 minutes (1s * 180)
+  private readonly MAX_SUMMARY_ATTEMPTS = 300; // 5 minutes (1s * 300)
+  // Adding cleanup timeouts to ensure polling stops eventually
+  private cleanupTimeouts: Map<string, number> = new Map();
+  private readonly CLEANUP_TIMEOUT = 360000; // 6 minutes absolute maximum
+
+  // State refs
+  public isLoadingTranscript = ref(false);
+  public isLoadingSummary = ref(false);
+  public isPollingActiveSummary = ref(false);
+  public error = ref('');
+
+  /**
+   * Start polling for both transcript and summary
+   */
+  startPolling(videoId: string, language: string = 'en', callbacks: {
+    onTranscriptComplete?: (transcript: TranscriptResponse) => void,
+    onSummaryComplete?: (summary: SummaryResponse) => void,
+    onError?: (error: Error) => void
+  } = {}) {
+    console.log(`🚀 Starting polling process for videoId: ${videoId}, language: ${language}`);
+    
+    // Initialize polling state tracking for this videoId
+    this.isPollingActive[videoId] = { transcript: false, summary: false };
+    
+    // Önce mevcut tüm polling işlemlerini temizle
+    this.stopAllPolling(videoId);
+    
+    // Set a master cleanup timeout to ensure polling stops eventually no matter what
+    this.setCleanupTimeout(videoId);
+    
+    // Sonra yeni polling başlat
+    this.startTranscriptPolling(videoId, language, callbacks);
+  }
+
+  /**
+   * Start polling for transcript
+   */
+  private startTranscriptPolling(videoId: string, language: string, callbacks: {
+    onTranscriptComplete?: (transcript: TranscriptResponse) => void,
+    onSummaryComplete?: (summary: SummaryResponse) => void,
+    onError?: (error: Error) => void
+  }) {
+    let attempts = 0;
+    
+    // Döngüye girmemesi için önce mevcut bir polling varsa temizle
+    this.stopTranscriptPolling(videoId);
+    
+    this.isLoadingTranscript.value = true;
+    this.error.value = '';
+    
+    // Update polling state
+    if (!this.isPollingActive[videoId]) {
+      this.isPollingActive[videoId] = { transcript: false, summary: false };
+    }
+    this.isPollingActive[videoId].transcript = true;
+
+    console.log(`🔄 Starting transcript polling for videoId: ${videoId}, language: ${language}`);
+
+    const intervalId = window.setInterval(async () => {
+      console.log(`📡 Polling transcript for videoId: ${videoId}, attempt: ${attempts}/${this.MAX_TRANSCRIPT_ATTEMPTS}`);
+
+      if (attempts >= this.MAX_TRANSCRIPT_ATTEMPTS) {
+        console.log(`⚠️ Transcript polling max attempts (${this.MAX_TRANSCRIPT_ATTEMPTS}) reached for videoId: ${videoId}`);
+        this.stopTranscriptPolling(videoId);
+        this.isLoadingTranscript.value = false;
+        this.error.value = 'Transkript oluşturma zaman aşımına uğradı.';
+        callbacks.onError?.(new Error('Transcript timeout'));
+        return;
+      }
+      
+      // Eğer polling zaten durdurulduysa işlemi sonlandır
+      if (!this.transcriptIntervals.has(videoId) || !this.isPollingActive[videoId]?.transcript) {
+        console.log(`🛑 Transcript polling already stopped for videoId: ${videoId}, exiting interval`);
+        return;
+      }
+
+      try {
+        const status = await apiService.getTranscriptStatus(videoId, language);
+        console.log(`📊 Transcript polling result for videoId: ${videoId}, attempt: ${attempts}:`, status);
+        
+        // Daha detaylı status kontrolleri
+        const statusValue = String(status?.status || '').toLowerCase();
+        const isCompleted = statusValue === 'completed' || statusValue.includes('complet');
+        const isFailed = statusValue === 'failed' || statusValue === 'error' || statusValue.includes('fail') || statusValue.includes('error');
+
+        if (isCompleted) {
+          console.log(`✅ Transcript completed for videoId: ${videoId}`);
+          
+          // Önce polling durduralım
+          this.stopTranscriptPolling(videoId);
+          
+          // Sonra callback çağıralım
+          try {
+            const response = await this.convertToTranscriptResponse(status);
+            console.log(`📨 Calling onTranscriptComplete callback for videoId: ${videoId}`);
+            callbacks.onTranscriptComplete?.(response);
+            console.log(`✓ onTranscriptComplete callback executed for videoId: ${videoId}`);
+            
+            // Start summary polling after transcript is complete
+            console.log(`🔄 Starting summary polling after transcript for videoId: ${videoId}`);
+            this.startSummaryPolling(videoId, language, callbacks);
+          } catch (callbackError) {
+            console.error(`❌ Error in transcript completion callback for videoId: ${videoId}`, callbackError);
+          }
+          
+          return; // Bu interval döngüsünü sonlandır
+        } else if (isFailed) {
+          console.error(`❌ Transcript failed for videoId: ${videoId}:`, status.error);
+          this.stopTranscriptPolling(videoId);
+          this.isLoadingTranscript.value = false;
+          this.error.value = status.error || 'Transkript oluşturma başarısız oldu.';
+          callbacks.onError?.(status.error ? (typeof status.error === 'object' ? status.error : new Error(String(status.error))) : new Error('Transcript failed'));
+          return; // Bu interval döngüsünü sonlandır
+        }
+
+        attempts++;
+      } catch (error) {
+        console.error(`❌ Transcript polling error for videoId: ${videoId}:`, error);
+        this.error.value = error instanceof Error ? error.message : 'Transkript alınırken bir hata oluştu';
+        callbacks.onError?.(error instanceof Error ? error : new Error('Transcript polling failed'));
+        
+        // Ensure polling is stopped on error
+        this.stopTranscriptPolling(videoId);
+        this.isLoadingTranscript.value = false;
+        
+        // Check if all polling needs to be stopped
+        this.checkAndUpdatePollingStatus(videoId);
+      }
+    }, this.TRANSCRIPT_INTERVAL);
+
+    // Interval ID'yi kaydet
+    this.transcriptIntervals.set(videoId, intervalId);
+    console.log(`📝 Saved transcript polling intervalId for videoId: ${videoId}`);
+  }
+
+  /**
+   * Start polling for summary
+   */
+  private startSummaryPolling(videoId: string, language: string, callbacks: {
+    onSummaryComplete?: (summary: SummaryResponse) => void,
+    onError?: (error: Error) => void
+  }) {
+    let attempts = 0;
+    
+    // Döngüye girmemesi için önce mevcut bir polling varsa temizle
+    this.stopSummaryPolling(videoId);
+    
+    this.isLoadingSummary.value = true;
+    this.isPollingActiveSummary.value = true;
+    
+    // Update polling state
+    if (!this.isPollingActive[videoId]) {
+      this.isPollingActive[videoId] = { transcript: false, summary: false };
+    }
+    this.isPollingActive[videoId].summary = true;
+    
+    console.log(`🔄 Starting summary polling for videoId: ${videoId}, language: ${language}`);
+
+    const intervalId = window.setInterval(async () => {
+      try {
+        if (attempts >= this.MAX_SUMMARY_ATTEMPTS) {
+          console.log(`⚠️ Summary polling max attempts (${this.MAX_SUMMARY_ATTEMPTS}) reached for videoId: ${videoId}`);
+          this.stopSummaryPolling(videoId);
+          this.isLoadingSummary.value = false;
+          this.isPollingActiveSummary.value = false;
+          this.error.value = 'Özet oluşturma zaman aşımına uğradı.';
+          callbacks.onError?.(new Error('Summary timeout'));
+          
+          // Ensure full cleanup
+          this.checkAndUpdatePollingStatus(videoId);
+          return;
+        }
+
+        // Eğer polling zaten durdurulduysa işlemi sonlandır
+        if (!this.summaryIntervals.has(videoId) || !this.isPollingActive[videoId]?.summary) {
+          console.log(`🛑 Summary polling already stopped for videoId: ${videoId}, exiting interval`);
+          return;
+        }
+
+        console.log(`📡 Polling summary for videoId: ${videoId}, attempt: ${attempts}/${this.MAX_SUMMARY_ATTEMPTS}`);
+        const status = await apiService.getSummaryStatus(videoId, language);
+        console.log(`📊 Summary polling result for videoId: ${videoId}, attempt: ${attempts}`, status);
+        
+        // Daha detaylı status kontrolleri
+        const statusValue = String(status?.status || '').toLowerCase();
+        const isCompleted = statusValue === 'completed' || statusValue.includes('complet');
+        const isFailed = statusValue === 'failed' || statusValue === 'error' || statusValue.includes('fail') || statusValue.includes('error');
+
+        if (isCompleted) {
+          console.log(`✅ Summary completed for videoId: ${videoId}`);
+          
+          // Önce polling durduralım
+          this.stopSummaryPolling(videoId);
+          this.isLoadingSummary.value = false;
+          this.isPollingActiveSummary.value = false;
+          
+          // Clear cleanup timeout since summary is complete
+          if (this.cleanupTimeouts.has(videoId)) {
+            clearTimeout(this.cleanupTimeouts.get(videoId));
+            this.cleanupTimeouts.delete(videoId);
+          }
+          
+          // Sonra callback çağıralım (bu sıra önemli)
+          try {
+            const response = await this.convertToSummaryResponse(status);
+            console.log(`📨 Calling onSummaryComplete callback for videoId: ${videoId}`);
+            callbacks.onSummaryComplete?.(response);
+            console.log(`✓ onSummaryComplete callback executed for videoId: ${videoId}`);
+            
+            // Double-check that all polling has stopped after summary completion
+            this.stopAllPolling(videoId);
+          } catch (callbackError) {
+            console.error(`❌ Error in summary completion callback for videoId: ${videoId}`, callbackError);
+          }
+          
+          console.log(`🏁 Summary processing finished for videoId: ${videoId}`);
+          
+          // Çift kontrol - polling'in tamamen durduğundan emin olalım
+          if (this.summaryIntervals.has(videoId) || this.isPollingActive[videoId]?.summary) {
+            console.error(`⚠️ Summary interval wasn't properly cleared for videoId: ${videoId}, forcing clear now`);
+            this.stopSummaryPolling(videoId);
+          }
+          
+          // Üçlü kontrol - polling tamamen bitti mi kontrol edelim ve her şeyi temizleyelim
+          this.checkAndUpdatePollingStatus(videoId);
+          
+          return; // Bu interval döngüsünü sonlandır
+        } else if (isFailed) {
+          console.error(`❌ Summary failed for videoId: ${videoId}:`, status.error);
+          this.stopSummaryPolling(videoId);
+          this.isLoadingSummary.value = false;
+          this.isPollingActiveSummary.value = false;
+          this.error.value = status.error || 'Özet oluşturma başarısız oldu.';
+          callbacks.onError?.(new Error(status.error || 'Summary failed'));
+          
+          // Polling tamamen bitti mi kontrol edelim
+          this.checkAndUpdatePollingStatus(videoId);
+          
+          return; // Bu interval döngüsünü sonlandır
+        }
+
+        attempts++;
+      } catch (error) {
+        console.error(`❌ Summary polling error for videoId: ${videoId}:`, error);
+        this.error.value = error instanceof Error ? error.message : 'Özet alınırken bir hata oluştu';
+        callbacks.onError?.(error instanceof Error ? error : new Error('Summary polling failed'));
+        
+        // Ensure polling is stopped on error
+        this.stopSummaryPolling(videoId);
+        this.isLoadingSummary.value = false;
+        this.isPollingActiveSummary.value = false;
+        
+        // Check if all polling needs to be stopped
+        this.checkAndUpdatePollingStatus(videoId);
+      }
+    }, this.SUMMARY_INTERVAL);
+
+    // Interval ID'yi kaydet
+    this.summaryIntervals.set(videoId, intervalId);
+    console.log(`📝 Saved summary polling intervalId for videoId: ${videoId}`);
+  }
+
+  /**
+   * Check and update overall polling status
+   * @param videoId Video ID to check
+   */
+  private checkAndUpdatePollingStatus(videoId: string): void {
+    console.log(`🔍 Checking overall polling status for videoId: ${videoId}`);
+    
+    const hasTranscriptPolling = this.transcriptIntervals.has(videoId);
+    const hasSummaryPolling = this.summaryIntervals.has(videoId);
+    
+    if (!hasTranscriptPolling && !hasSummaryPolling) {
+      console.log(`📊 No active polling intervals found for videoId: ${videoId}, updating status`);
+      
+      if (this.isPollingActive[videoId]) {
+        // Reset polling state
+        this.isPollingActive[videoId] = { transcript: false, summary: false };
+        console.log(`📊 Reset polling state for videoId: ${videoId}`);
+      }
+      
+      // Reset global states if needed
+      if (this.isPollingActiveSummary.value) {
+        this.isPollingActiveSummary.value = false;
+        console.log(`📊 Reset global polling state`);
+      }
+    } else {
+      console.log(`📊 Still have active polling for videoId: ${videoId}. Transcript: ${hasTranscriptPolling}, Summary: ${hasSummaryPolling}`);
+    }
+  }
+
+  /**
+   * Stop transcript polling for a specific videoId
+   * @param videoId Video ID to stop polling for
+   * @returns boolean - true if polling was stopped, false if no polling was found
+   */
+  stopTranscriptPolling(videoId: string): boolean {
+    const intervalId = this.transcriptIntervals.get(videoId);
+    if (intervalId) {
+      console.log(`🛑 Stopping transcript polling for videoId: ${videoId}`);
+      clearInterval(intervalId);
+      this.transcriptIntervals.delete(videoId);
+      
+      // Update polling state
+      if (this.isPollingActive[videoId]) {
+        this.isPollingActive[videoId].transcript = false;
+      }
+      
+      console.log(`✅ Transcript polling successfully stopped for videoId: ${videoId}`);
+      return true;
+    }
+    console.log(`ℹ️ No active transcript polling found for videoId: ${videoId}`);
+    
+    // Update polling state anyway to ensure it's false
+    if (this.isPollingActive[videoId]) {
+      this.isPollingActive[videoId].transcript = false;
+    }
+    
+    return false;
+  }
+
+  /**
+   * Stop summary polling for a specific videoId
+   * @param videoId Video ID to stop polling for
+   * @returns boolean - true if polling was stopped, false if no polling was found
+   */
+  stopSummaryPolling(videoId: string): boolean {
+    const intervalId = this.summaryIntervals.get(videoId);
+    if (intervalId) {
+      console.log(`🛑 Stopping summary polling for videoId: ${videoId}`);
+      clearInterval(intervalId);
+      this.summaryIntervals.delete(videoId);
+      this.isPollingActiveSummary.value = false;
+      
+      // Update polling state
+      if (this.isPollingActive[videoId]) {
+        this.isPollingActive[videoId].summary = false;
+      }
+      
+      console.log(`✅ Summary polling successfully stopped for videoId: ${videoId}`);
+      return true;
+    }
+    console.log(`ℹ️ No active summary polling found for videoId: ${videoId}`);
+    
+    // Update polling state anyway to ensure it's false
+    if (this.isPollingActive[videoId]) {
+      this.isPollingActive[videoId].summary = false;
+    }
+    
+    // Reset global state if needed
+    this.isPollingActiveSummary.value = false;
+    
+    return false;
+  }
+
+  /**
+   * Stop all polling for a specific videoId
+   */
+  stopAllPolling(videoId: string) {
+    console.log(`🔥 [PollingService] Stopping ALL polling for videoId: ${videoId}`);
+    
+    try {
+      // Stop transcript polling
+      this.stopTranscriptPolling(videoId);
+      
+      // Stop summary polling
+      this.stopSummaryPolling(videoId);
+      
+      // Clear the cleanup timeout
+      if (this.cleanupTimeouts.has(videoId)) {
+        clearTimeout(this.cleanupTimeouts.get(videoId));
+        this.cleanupTimeouts.delete(videoId);
+        console.log(`🧹 [PollingService] Removed cleanup timeout for ${videoId}`);
+      }
+      
+      // Force clean all polling state for this video
+      if (this.isPollingActive[videoId]) {
+        delete this.isPollingActive[videoId];
+        console.log(`🧹 [PollingService] Removed polling active state for ${videoId}`);
+      }
+      
+      // Extra safety - clear any other intervals that might be associated with this video
+      // This is a brute force approach to ensure all polling stops
+      const intervalKeys = [...this.transcriptIntervals.keys(), ...this.summaryIntervals.keys()];
+      for (const key of intervalKeys) {
+        if (key.includes(videoId)) {
+          if (this.transcriptIntervals.has(key)) {
+            clearInterval(this.transcriptIntervals.get(key));
+            this.transcriptIntervals.delete(key);
+            console.log(`🧹 [PollingService] Force cleared transcript interval for key: ${key}`);
+          }
+          
+          if (this.summaryIntervals.has(key)) {
+            clearInterval(this.summaryIntervals.get(key));
+            this.summaryIntervals.delete(key);
+            console.log(`🧹 [PollingService] Force cleared summary interval for key: ${key}`);
+          }
+        }
+      }
+      
+      console.log(`✅ [PollingService] Successfully stopped all polling for ${videoId}`);
+      return true;
+    } catch (error) {
+      console.error(`❌ [PollingService] Error stopping polling for ${videoId}:`, error);
+      
+      // Nuclear option - try to stop all intervals up to 10000 if above methods fail
+      for (let i = 0; i < 10000; i++) {
+        clearInterval(i);
+      }
+      
+      return false;
+    }
+  }
+  
+  /**
+   * Stop all active polling across all videos
+   */
+  stopAllActivePolling() {
+    console.log('🛑 Stopping all active polling across all videos');
+    
+    // Tüm transcript polling işlemlerini durdur
+    for (const [videoId, intervalId] of this.transcriptIntervals.entries()) {
+      clearInterval(intervalId);
+      this.transcriptIntervals.delete(videoId);
+      if (this.isPollingActive[videoId]) {
+        this.isPollingActive[videoId].transcript = false;
+      }
+      console.log(`✅ Transcript polling stopped for videoId: ${videoId}`);
+    }
+    
+    // Tüm summary polling işlemlerini durdur
+    for (const [videoId, intervalId] of this.summaryIntervals.entries()) {
+      clearInterval(intervalId);
+      this.summaryIntervals.delete(videoId);
+      if (this.isPollingActive[videoId]) {
+        this.isPollingActive[videoId].summary = false;
+      }
+      console.log(`✅ Summary polling stopped for videoId: ${videoId}`);
+    }
+    
+    // State'leri sıfırla
+    this.isLoadingTranscript.value = false;
+    this.isLoadingSummary.value = false;
+    this.isPollingActiveSummary.value = false;
+    
+    // Reset all polling states
+    for (const videoId in this.isPollingActive) {
+      this.isPollingActive[videoId] = { transcript: false, summary: false };
+    }
+    
+    console.log('✅ All active polling stopped');
+  }
+
+  /**
+   * Check if a video has active polling
+   */
+  hasActivePolling(videoId: string): boolean {
+    // Check both interval maps and the tracking object
+    const hasTranscriptPolling = this.transcriptIntervals.has(videoId) || 
+                                (this.isPollingActive[videoId]?.transcript === true);
+    const hasSummaryPolling = this.summaryIntervals.has(videoId) || 
+                             (this.isPollingActive[videoId]?.summary === true);
+    
+    console.log(`📊 Polling status for videoId ${videoId}: Transcript=${hasTranscriptPolling}, Summary=${hasSummaryPolling}`);
+    
+    return hasTranscriptPolling || hasSummaryPolling;
+  }
+
+  /**
+   * Check if any polling is active for any video
+   */
+  hasAnyActivePolling(): boolean {
+    const hasTranscriptPolling = this.transcriptIntervals.size > 0;
+    const hasSummaryPolling = this.summaryIntervals.size > 0;
+    
+    // Also check the tracking object
+    let hasActiveTrackingState = false;
+    for (const videoId in this.isPollingActive) {
+      if (this.isPollingActive[videoId].transcript || this.isPollingActive[videoId].summary) {
+        hasActiveTrackingState = true;
+        break;
+      }
+    }
+    
+    console.log(`📊 Global polling status: Transcript=${hasTranscriptPolling}, Summary=${hasSummaryPolling}, TrackingState=${hasActiveTrackingState}`);
+    
+    return hasTranscriptPolling || hasSummaryPolling || hasActiveTrackingState;
+  }
+
+  /**
+   * Get a list of all video IDs with active polling
+   */
+  getActivePollingVideoIds(): string[] {
+    const activeIds: string[] = [];
+    
+    // Check interval maps
+    for (const videoId of this.transcriptIntervals.keys()) {
+      if (!activeIds.includes(videoId)) {
+        activeIds.push(videoId);
+      }
+    }
+    
+    for (const videoId of this.summaryIntervals.keys()) {
+      if (!activeIds.includes(videoId)) {
+        activeIds.push(videoId);
+      }
+    }
+    
+    // Also check the tracking object
+    for (const videoId in this.isPollingActive) {
+      if ((this.isPollingActive[videoId].transcript || this.isPollingActive[videoId].summary) && 
+          !activeIds.includes(videoId)) {
+        activeIds.push(videoId);
+      }
+    }
+    
+    console.log(`📊 Active polling videoIds: ${activeIds.join(', ') || 'None'}`);
+    
+    return activeIds;
+  }
+
+  private async convertToTranscriptResponse(status: ProcessingStatus): Promise<TranscriptResponse> {
+    if (status.status === 'not_found') {
+      return {
+        status: 'pending',
+        task_id: undefined
+      };
+    }
+    return {
+      status: status.status,
+      task_id: status.task_id,
+      formatted_text: status.formatted_text,
+      error: status.error
+    };
+  }
+
+  private async convertToSummaryResponse(status: ProcessingStatus): Promise<SummaryResponse> {
+    if (status.status === 'not_found') {
+      return {
+        status: 'pending',
+        task_id: undefined
+      };
+    }
+    return {
+      status: status.status,
+      task_id: status.task_id,
+      content: status.content,
+      error: status.error
+    };
+  }
+
+  private setCleanupTimeout(videoId: string) {
+    // Clear any existing cleanup timeout
+    if (this.cleanupTimeouts.has(videoId)) {
+      clearTimeout(this.cleanupTimeouts.get(videoId));
+      this.cleanupTimeouts.delete(videoId);
+    }
+    
+    // Set new cleanup timeout
+    const timeoutId = window.setTimeout(() => {
+      console.log(`⚠️ SAFETY: Cleanup timeout triggered for videoId: ${videoId} after ${this.CLEANUP_TIMEOUT / 60000} minutes`);
+      // Force stop all polling for this video after absolute maximum time
+      this.forcedStopAllPolling(videoId);
+    }, this.CLEANUP_TIMEOUT);
+    
+    this.cleanupTimeouts.set(videoId, timeoutId);
+    console.log(`🛡️ Set cleanup timeout for videoId: ${videoId}`);
+  }
+
+  /**
+   * Force stop all polling for a videoId, use in emergency situations
+   */
+  forcedStopAllPolling(videoId: string) {
+    console.log(`🚨 FORCED stop of all polling for videoId: ${videoId}`);
+    
+    // Clear cleanup timeout
+    if (this.cleanupTimeouts.has(videoId)) {
+      clearTimeout(this.cleanupTimeouts.get(videoId));
+      this.cleanupTimeouts.delete(videoId);
+    }
+    
+    // Force clear all intervals
+    this.stopAllPolling(videoId);
+    
+    // Reset all possible flags and states
+    this.isLoadingTranscript.value = false;
+    this.isLoadingSummary.value = false;
+    this.isPollingActiveSummary.value = false;
+    this.error.value = '';
+    
+    // Explicitly ensure the polling state is reset
+    if (this.isPollingActive[videoId]) {
+      this.isPollingActive[videoId] = { transcript: false, summary: false };
+    }
+    
+    console.log(`✅ FORCED stop completed for videoId: ${videoId}`);
+  }
+
+  /**
+   * Emergency kill switch to stop ALL polling across the entire application
+   * Use this when other methods fail to stop polling
+   */
+  emergencyStopAllPolling() {
+    console.log(`🚨 [PollingService] EMERGENCY STOP - Stopping ALL polling across all videos`);
+    
+    try {
+      // Clear all transcript intervals
+      this.transcriptIntervals.forEach((intervalId) => {
+        clearInterval(intervalId);
+      });
+      this.transcriptIntervals.clear();
+      
+      // Clear all summary intervals
+      this.summaryIntervals.forEach((intervalId) => {
+        clearInterval(intervalId);
+      });
+      this.summaryIntervals.clear();
+      
+      // Clear all cleanup timeouts
+      this.cleanupTimeouts.forEach((timeoutId) => {
+        clearTimeout(timeoutId);
+      });
+      this.cleanupTimeouts.clear();
+      
+      // Reset all polling state
+      this.isPollingActive = {};
+      
+      // Reset loading state refs
+      this.isLoadingTranscript.value = false;
+      this.isLoadingSummary.value = false;
+      this.isPollingActiveSummary.value = false;
+      
+      // Nuclear option - clear ALL intervals and timeouts in the window
+      // This is extreme but effective
+      const highestId = window.setTimeout(() => {}, 0);
+      for (let i = 0; i < highestId; i++) {
+        clearTimeout(i);
+        clearInterval(i);
+      }
+      
+      console.log(`✅ [PollingService] Successfully executed emergency stop for ALL polling`);
+      
+      // Make the emergency stop available in the browser console for manual intervention
+      if (typeof window !== 'undefined') {
+        (window as any).__VECIZ_EMERGENCY_STOP_POLLING = () => this.emergencyStopAllPolling();
+        console.log('💡 Emergency stop function added to window.__VECIZ_EMERGENCY_STOP_POLLING()');
+      }
+      
+      return true;
+    } catch (error) {
+      console.error(`❌ [PollingService] Error in emergency stop:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Cleanup all resources on component unmount
+   */
+  cleanup() {
+    console.log('🧹 Cleaning up all polling services');
+    this.stopAllActivePolling();
+    
+    // Clear all cleanup timeouts
+    for (const [videoId, timeoutId] of this.cleanupTimeouts.entries()) {
+      clearTimeout(timeoutId);
+      console.log(`🧹 Cleared cleanup timeout for videoId: ${videoId}`);
+    }
+    this.cleanupTimeouts.clear();
+    
+    // Reset all states
+    this.isLoadingTranscript.value = false;
+    this.isLoadingSummary.value = false;
+    this.isPollingActiveSummary.value = false;
+    this.error.value = '';
+    
+    // As a final safeguard, call the emergency stop
+    setTimeout(() => {
+      this.emergencyStopAllPolling();
+    }, 100);
+    
+    console.log('✅ All polling services cleaned up');
+  }
+}
+
+// Export default instance
+export default new PollingService(); 

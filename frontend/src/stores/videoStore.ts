@@ -22,7 +22,10 @@ export const useVideoStore = defineStore('video', () => {
     summary: languageStore.t('common.loading'),
     summaryPreview: '',
     formatted_text: languageStore.t('common.loadingTranscript'),
-    loading: false,
+    loading: {
+      transcript: false,
+      summary: false
+    },
     error: null
   })
   const summaries = ref<VideoSummary[]>([])
@@ -105,7 +108,10 @@ export const useVideoStore = defineStore('video', () => {
       summary: languageStore.t('common.loading'),
       summaryPreview: '',
       formatted_text: languageStore.t('common.loadingTranscript'),
-      loading: false,
+      loading: {
+        transcript: false,
+        summary: false
+      },
       error: null
     }
   }
@@ -127,9 +133,26 @@ export const useVideoStore = defineStore('video', () => {
   }
 
   function clearProcessingStatus() {
-    processingStatus.value.isProcessing = false
-    processingStatus.value.currentStep = ''
-    setLoadingState('processing', false)
+    console.log('🧹 Clearing processing status in videoStore');
+    processingStatus.value = {
+      isProcessing: false,
+      currentStep: '',
+      steps: processingStatus.value.steps
+    };
+    currentProcessingVideoId.value = '';
+    loadingStates.value = {
+      video: false,
+      transcript: false,
+      summary: false,
+      processing: false
+    };
+    spinnerStates.value = {
+      video: false,
+      transcript: false,
+      summary: false,
+      processing: false
+    };
+    console.log('✅ Processing status cleared');
   }
 
   function toggleSpinner(type: 'video' | 'summary' | 'transcript' | 'processing', show: boolean) {

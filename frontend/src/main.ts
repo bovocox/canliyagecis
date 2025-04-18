@@ -5,6 +5,10 @@ import router from './router'
 import './style.css'
 import { useAuthStore } from './stores/auth'
 
+// Element Plus bileşenlerini import ediyoruz
+import ElementPlus from 'element-plus'
+import 'element-plus/dist/index.css'
+
 // Artık i18n yapılandırmasını kullanmayacağız
 // const savedLocale = localStorage.getItem('userLocale') || 'tr'
 // const detectBrowserLanguage = () => {
@@ -34,6 +38,7 @@ const pinia = createPinia()
 app.use(pinia)
 app.use(router)
 // app.use(i18n) // i18n eklentisini kaldırıyoruz
+app.use(ElementPlus) // Element Plus'ı uygulamaya ekliyoruz
 
 // Initialize auth store
 const authStore = useAuthStore()

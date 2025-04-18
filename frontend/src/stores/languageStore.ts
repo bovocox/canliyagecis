@@ -8,15 +8,32 @@ import { t as translate, setLocale, getCurrentLocale, getAvailableLocales } from
 
 // EventBus için basit bir implementasyon
 const eventBus = {
-  listeners: {} as Record<string, Function[]>,
-  on(event: string, callback: Function) {
+  listeners: {} as Record<string, Set<Function>>,
+  on(event: string, callback: Function): () => void {
     if (!this.listeners[event]) {
-      this.listeners[event] = [];
+      this.listeners[event] = new Set();
     }
-    this.listeners[event].push(callback);
+    
+    // Aynı callback'i birden fazla kez eklemeyi önle
+    if (this.listeners[event].has(callback)) {
+      console.log(`⚠️ Bu callback zaten '${event}' olayına eklenmiş, tekrar eklenmedi`);
+      return () => this.off(event, callback);
+    }
+    
+    this.listeners[event].add(callback);
+    console.log(`✅ Event listener eklendi: ${event}, toplam: ${this.listeners[event].size}`);
+    
+    // Temizleme fonksiyonu döndür
+    return () => this.off(event, callback);
+  },
+  off(event: string, callback: Function): void {
+    if (!this.listeners[event]) return;
+    this.listeners[event].delete(callback);
+    console.log(`🗑️ Event listener silindi: ${event}, kalan: ${this.listeners[event].size}`);
   },
   emit(event: string, data?: any) {
     if (!this.listeners[event]) return;
+    console.log(`📢 Event yayınlanıyor: ${event}, dinleyici sayısı: ${this.listeners[event].size}`);
     this.listeners[event].forEach(callback => callback(data));
   }
 };
@@ -77,8 +94,12 @@ export const useLanguageStore = defineStore('language', () => {
     }
   }
 
-  function onLanguageChange(callback: (lang: string) => void) {
-    eventBus.on('language-changed', callback);
+  /**
+   * Dil değişikliği olayını dinlemek için kullanılır.
+   * Temizleme fonksiyonu döndürür - bileşen unmount olduğunda bu fonksiyon çağrılmalıdır.
+   */
+  function onLanguageChange(callback: (lang: string) => void): () => void {
+    return eventBus.on('language-changed', callback);
   }
 
   return {

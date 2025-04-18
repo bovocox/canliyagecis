@@ -29,6 +29,9 @@ export interface TranscriptResponse {
   task_id?: string;
   formatted_text?: string;
   error?: string;
+  message?: string;
+  id?: string;
+  transcript_id?: string;
 }
 
 export interface SummaryResponse {
@@ -261,7 +264,7 @@ export class ApiService {
   /**
    * Create summary from video
    */
-  async createSummaryFromVideo(params: { videoId: string, language?: string, url?: string }): Promise<SummaryResponse> {
+  async createSummaryFromVideo(params: { videoId: string, language?: string, url?: string, transcript_id?: string }): Promise<SummaryResponse> {
     const response = await fetch(`${this.baseUrl}/api/summaries/from-video`, {
       method: 'POST',
       headers: this.getHeaders(),
