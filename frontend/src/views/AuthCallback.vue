@@ -3,6 +3,7 @@ import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { logger } from '@/utils/logger'
+import { supabase } from '../config/supabase'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -11,24 +12,25 @@ onMounted(async () => {
   try {
     logger.info('Auth callback mounted, checking session...')
     
-    // Get hash fragment from URL if exists
-    const hashParams = new URLSearchParams(window.location.hash.substring(1))
-    const accessToken = hashParams.get('access_token')
+    // Handle the OAuth callback
+    const { data, error } = await supabase.auth.getSession()
     
-    if (accessToken) {
-      logger.info('Found access token in URL')
+    if (error) {
+      throw error
     }
     
-    await authStore.checkUser()
-    
-    if (authStore.user) {
+    if (data?.session) {
+      logger.info('Session found, setting user...')
+      authStore.setUser(data.session.user)
+      authStore.setSession({ access_token: data.session.access_token })
+      
       logger.info('User authenticated, redirecting to channels', {
-        userId: authStore.user.id,
-        email: authStore.user.email
+        userId: data.session.user.id,
+        email: data.session.user.email
       })
       router.push('/channels')
     } else {
-      logger.error('No user found after auth callback')
+      logger.error('No session found after auth callback')
       router.push('/')
     }
   } catch (error) {
