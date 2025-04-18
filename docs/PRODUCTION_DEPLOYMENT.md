@@ -27,7 +27,7 @@ DATABASE_URL=your_production_db_url
 SUPABASE_URL=your_production_supabase_url
 SUPABASE_ANON_KEY=your_production_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_production_supabase_service_role_key
-UPSTASH_REDIS_URL=your_production_redis_url
+REDIS_URL=your_production_redis_url
 REDIS_CACHE_TTL=3600
 WORKER_COUNT=10
 ```
@@ -168,7 +168,7 @@ npm run start:prod
 ### 5.1. Yaygın Hatalar
 
 **Hata**: REDIS_URL bulunamadı
-**Çözüm**: `.env.production` dosyasında UPSTASH_REDIS_URL değişkenini kontrol edin
+**Çözüm**: `.env.production` dosyasında REDIS_URL değişkenini kontrol edin
 
 **Hata**: Veritabanı bağlantı hatası
 **Çözüm**: DATABASE_URL'yi kontrol edin ve ağ erişimi sağlayın

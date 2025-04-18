@@ -3,7 +3,6 @@ import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { logger } from '@/utils/logger'
-import { supabase } from '../config/supabase'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -11,45 +10,25 @@ const authStore = useAuthStore()
 onMounted(async () => {
   try {
     logger.info('Auth callback mounted, checking session...')
-
-    // Get the URL hash
+    
+    // Get hash fragment from URL if exists
     const hashParams = new URLSearchParams(window.location.hash.substring(1))
-    const error = hashParams.get('error')
-    const errorDescription = hashParams.get('error_description')
-
-    if (error) {
-      logger.error('Auth error:', { error, errorDescription })
-      throw new Error(errorDescription || error)
+    const accessToken = hashParams.get('access_token')
+    
+    if (accessToken) {
+      logger.info('Found access token in URL')
     }
-
-    // Let Supabase handle the auth response
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-
-    if (sessionError) {
-      logger.error('Supabase auth error:', sessionError)
-      throw sessionError
-    }
-
-    if (session) {
-      logger.info('Session found, setting user...', {
-        userId: session.user.id,
-        email: session.user.email
+    
+    await authStore.checkUser()
+    
+    if (authStore.user) {
+      logger.info('User authenticated, redirecting to channels', {
+        userId: authStore.user.id,
+        email: authStore.user.email
       })
-
-      authStore.setUser(session.user)
-      authStore.setSession({ access_token: session.access_token })
-
-      // Clear URL fragments and parameters
-      window.history.replaceState(
-        {},
-        document.title,
-        window.location.pathname
-      )
-
-      logger.info('User authenticated, redirecting to channels')
       router.push('/channels')
     } else {
-      logger.error('No session found after auth callback')
+      logger.error('No user found after auth callback')
       router.push('/')
     }
   } catch (error) {
